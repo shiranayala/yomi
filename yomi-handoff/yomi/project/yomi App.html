@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>yomi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&family=Heebo:wght@400;500;600;700&family=Rubik:wght@400;500;600;700&family=Gveret+Levin+AlefAlefAlef&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background:
+      radial-gradient(120% 120% at 50% 0%, #f3f7f4 0%, #e8efe9 55%, #dfe8e2 100%);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    font-family: "Rubik", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<!-- data + themes (plain JS) -->
+<script src="yomi-data.js"></script>
+<script src="yomi-themes.js"></script>
+
+<!-- components (JSX) -->
+<script type="text/babel" src="yomi-icons.jsx"></script>
+<script type="text/babel" src="yomi-app.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+  const { useEffect } = React;
+
+  // ── Palette presets (same hue family, swapped accent) ──────────
+  const PALETTES = [
+    { primary: '#3f7a64', deep: '#2f5e4d', soft: '#dcebe4', heroFrom: '#6aa890', bg: '#eef3f0', alt: '#e4ede8' }, // sage
+    { primary: '#c97b5a', deep: '#a15c3e', soft: '#f1e3d9', heroFrom: '#e0a07f', bg: '#f6f0ea', alt: '#efe2d8' }, // terracotta
+    { primary: '#5b7fc4', deep: '#3f5fa0', soft: '#dde6f4', heroFrom: '#88a6dd', bg: '#eef1f7', alt: '#e1e8f3' }, // indigo
+    { primary: '#9c6ba8', deep: '#7a4d86', soft: '#ecdff0', heroFrom: '#bd93c6', bg: '#f4eef6', alt: '#ece1ef' }, // plum
+  ];
+  const PALETTE_OPTS = PALETTES.map(p => [p.primary, p.heroFrom, p.deep]);
+
+  const FONT_MAP = {
+    'Rubik': '"Rubik", system-ui, sans-serif',
+    'Assistant': '"Assistant", system-ui, sans-serif',
+    'Heebo': '"Heebo", system-ui, sans-serif',
+  };
+  const RADII = {
+    'מעוגל': { card: 26, tile: 20, chip: 999 },
+    'בינוני': { card: 16, tile: 12, chip: 999 },
+    'חד': { card: 8, tile: 6, chip: 999 },
+  };
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "palette": [
+      "#9c6ba8",
+      "#bd93c6",
+      "#7a4d86"
+    ],
+    "font": "Rubik",
+    "radius": "מעוגל",
+    "greeting": "בוקר טוב"
+  }/*EDITMODE-END*/;
+
+  function buildTheme(t) {
+    const base = window.YOMI_THEMES.lively;
+    const pal = PALETTES.find(p => p.primary === (t.palette && t.palette[0])) || PALETTES[0];
+    return {
+      ...base,
+      greeting: t.greeting,
+      fonts: { hand: base.fonts.hand, body: FONT_MAP[t.font] || base.fonts.body },
+      radius: RADII[t.radius] || base.radius,
+      color: {
+        ...base.color,
+        primary: pal.primary, primaryDeep: pal.deep, primarySoft: pal.soft,
+        heroFrom: pal.heroFrom, bg: pal.bg, surfaceAlt: pal.alt,
+      },
+    };
+  }
+
+  // Scale the fixed-size device to fit any viewport.
+  function useFitScale(w, h, pad = 40) {
+    const [s, setS] = React.useState(1);
+    useEffect(() => {
+      const fit = () => setS(Math.min(1, (window.innerHeight - pad) / h, (window.innerWidth - pad) / w));
+      fit();
+      window.addEventListener('resize', fit);
+      return () => window.removeEventListener('resize', fit);
+    }, [w, h, pad]);
+    return s;
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const theme = buildTheme(t);
+    const scale = useFitScale(402, 874);
+
+    return (
+      <>
+        <div style={{ transform: 'scale(' + scale + ')', transformOrigin: 'center center' }}>
+          <IOSDevice>
+            <YomiApp theme={theme} />
+          </IOSDevice>
+        </div>
+
+        <TweaksPanel title="כיוונון">
+          <TweakSection label="מראה" />
+          <TweakColor label="פלטה" value={t.palette} options={PALETTE_OPTS}
+                      onChange={(v) => setTweak('palette', v)} />
+          <TweakRadio label="גופן" value={t.font} options={['Rubik', 'Assistant', 'Heebo']}
+                      onChange={(v) => setTweak('font', v)} />
+          <TweakRadio label="פינות" value={t.radius} options={['מעוגל', 'בינוני', 'חד']}
+                      onChange={(v) => setTweak('radius', v)} />
+          <TweakSection label="כותרת" />
+          <TweakText label="ברכה" value={t.greeting} placeholder="בוקר טוב"
+                     onChange={(v) => setTweak('greeting', v)} />
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
