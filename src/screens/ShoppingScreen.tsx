@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { theme, softLine } from '../theme';
 import type { ShoppingItem } from '../lib/types';
-import { Check, AddRow } from '../components/atoms';
+import { Check, AddRow, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
-const TOP_INSET = 20;
+
 
 export function ShoppingScreen({ shopping, onToggle, onAdd }: {
   shopping: ShoppingItem[];
@@ -21,29 +21,22 @@ export function ShoppingScreen({ shopping, onToggle, onAdd }: {
   }, [shopping]);
 
   return (
-    <div style={{ padding: `${TOP_INSET + 8}px 18px 100px` }}>
-      <h1 style={{
-        margin: '0 2px 6px', fontFamily: T.fonts.hand, fontWeight: 400,
-        fontSize: Math.round(34 * T.headingScale), color: T.color.text,
-      }}>קניות</h1>
+    <div style={{ paddingBottom: 100 }}>
+      <PageHeader
+        icon={<Icon.cart size={26} color="#fff" sw={1.8} />}
+        title="קניות"
+        sub={shopLeft > 0 ? `נשארו ${shopLeft} פריטים לקנות` : 'הכל קנוי!'}
+      />
 
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
-        padding: '12px 16px', background: T.color.surface,
-        borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-      }}>
-        <Icon.cart size={18} color={T.color.primary} />
-        <span style={{ fontSize: 14, color: T.color.textMuted }}>
-          נשארו <b style={{ color: T.color.text }}>{shopLeft}</b> פריטים לקנות
-        </span>
-        {shopLeft === 0 && (
-          <span style={{
-            marginInlineStart: 'auto', fontSize: 13, fontWeight: 700,
-            color: T.color.primary, background: T.color.primarySoft,
-            borderRadius: 99, padding: '3px 10px',
-          }}>✓ הכל קנוי!</span>
-        )}
-      </div>
+      <div style={{ padding: '0 18px' }}>
+      {shopLeft === 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '10px 16px', marginBottom: 16,
+          background: T.color.primarySoft, borderRadius: T.radius.tile,
+          fontSize: 13, fontWeight: 700, color: T.color.primaryDeep,
+        }}>✓ הכל קנוי!</div>
+      )}
 
       {aisles.map(aisle => (
         <div key={aisle} style={{ marginBottom: 16 }}>
@@ -75,6 +68,7 @@ export function ShoppingScreen({ shopping, onToggle, onAdd }: {
       ))}
 
       <AddRow placeholder="הוסף פריט לקנייה…" onAdd={onAdd} />
+      </div>
     </div>
   );
 }

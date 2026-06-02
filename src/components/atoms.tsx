@@ -110,6 +110,45 @@ export function SectionHead({ children, sub }: { children: React.ReactNode; sub?
   );
 }
 
+export function PageHeader({ icon, title, sub, action }: {
+  icon: React.ReactNode;
+  title: string;
+  sub?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div style={{ padding: '22px 18px 20px', position: 'relative' }}>
+      {/* Accent bar */}
+      <div style={{
+        position: 'absolute', top: 0, right: 18, left: 18, height: 3,
+        background: `linear-gradient(90deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 100%)`,
+        borderRadius: '0 0 4px 4px', opacity: 0.7,
+      }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* Icon badge */}
+        <div style={{
+          width: 50, height: 50, borderRadius: 16, flexShrink: 0,
+          background: `linear-gradient(135deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 100%)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 4px 14px ${T.color.primary}40`,
+        }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 style={{
+            margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
+            fontSize: Math.round(32 * T.headingScale), color: T.color.text, lineHeight: 1.1,
+          }}>{title}</h1>
+          {sub && (
+            <div style={{ fontSize: 12.5, color: T.color.textMuted, marginTop: 2 }}>{sub}</div>
+          )}
+        </div>
+        {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+      </div>
+    </div>
+  );
+}
+
 export function NavBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{

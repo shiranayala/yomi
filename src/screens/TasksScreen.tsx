@@ -1,11 +1,11 @@
 import { theme, catColor } from '../theme';
 import type { Task } from '../lib/types';
 import { isToday } from '../lib/recurrence';
-import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
+import { Check, Chip, AddRow, SectionHead, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
-const TOP_INSET = 20;
+
 
 function RecurIcon() {
   return (
@@ -67,7 +67,9 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
 }) {
-  const generalTodayTasks = tasks.filter(t => t.type !== 'scheduled' && t.today);
+  const generalTodayTasks = tasks.filter(t =>
+    t.type !== 'scheduled' && (t.today || (t.date && isToday(t.date, t.recurrence)))
+  );
   const scheduledTodayTasks = tasks.filter(t =>
     t.type === 'scheduled' && t.date && isToday(t.date, t.recurrence)
   );
@@ -77,12 +79,14 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
   const doneTodayCount = todayTasks.filter(t => t.done).length;
 
   return (
-    <div style={{ padding: `${TOP_INSET + 8}px 18px 100px` }}>
-      <h1 style={{
-        margin: '0 2px 6px', fontFamily: T.fonts.hand, fontWeight: 400,
-        fontSize: Math.round(34 * T.headingScale), color: T.color.text,
-      }}>משימות</h1>
+    <div style={{ paddingBottom: 100 }}>
+      <PageHeader
+        icon={<Icon.checkCircle size={26} color="#fff" sw={1.8} />}
+        title="משימות"
+        sub={`${doneTodayCount} מתוך ${todayTasks.length} הושלמו היום`}
+      />
 
+      <div style={{ padding: '0 18px' }}>
       {/* Progress summary */}
       <div style={{
         background: T.color.surface, borderRadius: T.radius.tile,
@@ -126,6 +130,7 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
           <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
         ))}
         <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddTask} />
+      </div>
       </div>
     </div>
   );

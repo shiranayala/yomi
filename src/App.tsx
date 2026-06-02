@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { theme } from './theme';
 import { TabBar, type TabId } from './components/TabBar';
-import { FAB } from './components/FAB';
 import { BottomSheet } from './components/BottomSheet';
 import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
@@ -11,8 +10,7 @@ import { ShoppingScreen } from './screens/ShoppingScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
 import { sampleTasks, sampleShopping, sampleNotes, sampleEvents } from './lib/data';
-import { supabase } from './lib/supabase';
-import { todayStr } from './lib/recurrence';
+import { db, collection, doc, getDocs, setDoc, updateDoc, deleteDoc } from './lib/firebase';
 import type { Task, ShoppingItem, Note, CalEvent } from './lib/types';
 
 const T = theme;
@@ -24,22 +22,51 @@ type FormState =
   | { kind: 'editTask'; task: Task }
   | { kind: 'editEvent'; event: CalEvent };
 
+// Firestore helpers
+function fsSet(col: string, id: string, data: object) {
+  if (!db) return;
+  setDoc(doc(db, col, id), data);
+}
+function fsUpdate(col: string, id: string, data: object) {
+  if (!db) return;
+  updateDoc(doc(db, col, id), data);
+}
+function fsDel(col: string, id: string) {
+  if (!db) return;
+  deleteDoc(doc(db, col, id));
+}
+
 export default function App() {
-  const [tab, setTab]         = useState<TabId>('today');
-  const [tasks, setTasks]     = useState<Task[]>(sampleTasks.map(t => ({ ...t })));
+  const [tab, setTab]           = useState<TabId>('today');
+  const [tasks, setTasks]       = useState<Task[]>(sampleTasks.map(t => ({ ...t })));
   const [shopping, setShopping] = useState<ShoppingItem[]>(sampleShopping.map(s => ({ ...s })));
-  const [notes, setNotes]     = useState<Note[]>(sampleNotes.map(n => ({ ...n })));
-  const [events, setEvents]   = useState<CalEvent[]>(sampleEvents.map(e => ({ ...e })));
-  const [form, setForm]       = useState<FormState>({ kind: 'none' });
+  const [notes, setNotes]       = useState<Note[]>(sampleNotes.map(n => ({ ...n })));
+  const [events, setEvents]     = useState<CalEvent[]>(sampleEvents.map(e => ({ ...e })));
+  const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const idc = useRef(300);
 
-  // Load from Supabase on mount
+  // Load from Firestore on mount; seed collection if empty
   useEffect(() => {
-    if (!supabase) return;
-    supabase.from('tasks').select('*').then(({ data }) => { if (data?.length) setTasks(data as Task[]); });
-    supabase.from('shopping').select('*').then(({ data }) => { if (data?.length) setShopping(data as ShoppingItem[]); });
-    supabase.from('notes').select('*').then(({ data }) => { if (data?.length) setNotes(data as Note[]); });
-    supabase.from('events').select('*').then(({ data }) => { if (data?.length) setEvents(data as CalEvent[]); });
+    if (!db) return;
+
+    async function loadOrSeed<T extends { id: string }>(
+      col: string,
+      seed: T[],
+      setter: (v: T[]) => void,
+    ) {
+      const snap = await getDocs(collection(db!, col));
+      if (snap.empty) {
+        await Promise.all(seed.map(item => setDoc(doc(db!, col, item.id), item)));
+        setter(seed);
+      } else {
+        setter(snap.docs.map(d => d.data() as T));
+      }
+    }
+
+    loadOrSeed('tasks',    sampleTasks.map(t => ({ ...t })),    setTasks);
+    loadOrSeed('shopping', sampleShopping.map(s => ({ ...s })), setShopping);
+    loadOrSeed('notes',    sampleNotes.map(n => ({ ...n })),    setNotes);
+    loadOrSeed('events',   sampleEvents.map(e => ({ ...e })),   setEvents);
   }, []);
 
   // ── Task operations ──────────────────────────────────────────────
@@ -47,7 +74,7 @@ export default function App() {
     setTasks(ts => {
       const next = ts.map(t => t.id === id ? { ...t, done: !t.done } : t);
       const t = next.find(t => t.id === id);
-      if (supabase && t) supabase.from('tasks').update({ done: t.done }).eq('id', id);
+      if (t) fsUpdate('tasks', id, { done: t.done });
       return next;
     });
   };
@@ -55,19 +82,14 @@ export default function App() {
   const saveTask = (t: Task) => {
     const isNew = !tasks.find(x => x.id === t.id);
     setTasks(ts => isNew ? [...ts, t] : ts.map(x => x.id === t.id ? t : x));
-    if (supabase) {
-      isNew
-        ? supabase.from('tasks').insert(t)
-        : supabase.from('tasks').update(t).eq('id', t.id);
-    }
+    fsSet('tasks', t.id, t);
   };
 
   const deleteTask = (id: string) => {
     setTasks(ts => ts.filter(t => t.id !== id));
-    if (supabase) supabase.from('tasks').delete().eq('id', id);
+    fsDel('tasks', id);
   };
 
-  // Quick-add from AddRow (general, today)
   const quickAddTask = (title: string) => {
     saveTask({
       id: 'nt' + (++idc.current),
@@ -78,18 +100,16 @@ export default function App() {
 
   // ── Event operations ─────────────────────────────────────────────
   const saveEvent = (ev: CalEvent) => {
-    const isNew = !events.find(x => x.id === ev.id);
-    setEvents(evs => isNew ? [...evs, ev] : evs.map(x => x.id === ev.id ? ev : x));
-    if (supabase) {
-      isNew
-        ? supabase.from('events').insert(ev)
-        : supabase.from('events').update(ev).eq('id', ev.id);
-    }
+    setEvents(evs => {
+      const isNew = !evs.find(x => x.id === ev.id);
+      return isNew ? [...evs, ev] : evs.map(x => x.id === ev.id ? ev : x);
+    });
+    fsSet('events', ev.id, ev);
   };
 
   const deleteEvent = (id: string) => {
     setEvents(evs => evs.filter(e => e.id !== id));
-    if (supabase) supabase.from('events').delete().eq('id', id);
+    fsDel('events', id);
   };
 
   // ── Shopping operations ──────────────────────────────────────────
@@ -97,7 +117,7 @@ export default function App() {
     setShopping(ss => {
       const next = ss.map(s => s.id === id ? { ...s, done: !s.done } : s);
       const s = next.find(s => s.id === id);
-      if (supabase && s) supabase.from('shopping').update({ done: s.done }).eq('id', id);
+      if (s) fsUpdate('shopping', id, { done: s.done });
       return next;
     });
   };
@@ -105,20 +125,18 @@ export default function App() {
   const addShop = (title: string) => {
     const item: ShoppingItem = { id: 'ns' + (++idc.current), title, done: false, aisle: 'אחר' };
     setShopping(ss => [...ss, item]);
-    if (supabase) supabase.from('shopping').insert(item);
+    fsSet('shopping', item.id, item);
   };
 
   // ── Note operations ──────────────────────────────────────────────
   const addNote = (title: string) => {
     const note: Note = { id: 'nn' + (++idc.current), title, body: '', tone: 'plain', pinned: false };
     setNotes(ns => [note, ...ns]);
-    if (supabase) supabase.from('notes').insert(note);
+    fsSet('notes', note.id, note);
   };
 
   // ── Form helpers ─────────────────────────────────────────────────
   const closeForm = () => setForm({ kind: 'none' });
-
-  const formOpen = form.kind !== 'none';
   const isTaskForm  = form.kind === 'addTask'  || form.kind === 'editTask';
   const isEventForm = form.kind === 'addEvent' || form.kind === 'editEvent';
 
@@ -129,7 +147,6 @@ export default function App() {
       fontFamily: T.fonts.body, WebkitFontSmoothing: 'antialiased',
       maxWidth: 480, margin: '0 auto', position: 'relative',
     }}>
-      {/* Main content */}
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {tab === 'today' && (
           <TodayScreen
@@ -138,6 +155,8 @@ export default function App() {
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
+            onOpenAddTask={() => setForm({ kind: 'addTask' })}
+            onOpenAddEvent={() => setForm({ kind: 'addEvent' })}
           />
         )}
         {tab === 'tasks' && (
@@ -157,20 +176,14 @@ export default function App() {
         {tab === 'calendar' && (
           <CalendarScreen
             events={events}
+            tasks={tasks}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
           />
         )}
       </div>
 
-      {/* FAB */}
-      <FAB
-        onAddTask={() => setForm({ kind: 'addTask' })}
-        onAddEvent={() => setForm({ kind: 'addEvent' })}
-      />
-
       <TabBar tab={tab} setTab={setTab} />
 
-      {/* Task form sheet */}
       <BottomSheet
         open={isTaskForm}
         onClose={closeForm}
@@ -186,7 +199,6 @@ export default function App() {
         )}
       </BottomSheet>
 
-      {/* Event form sheet */}
       <BottomSheet
         open={isEventForm}
         onClose={closeForm}

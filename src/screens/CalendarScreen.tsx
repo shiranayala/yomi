@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { theme, catColor } from '../theme';
 import { weekdaysShort, monthNames } from '../lib/data';
-import type { CalEvent } from '../lib/types';
+import type { CalEvent, Task } from '../lib/types';
 import { isItemOnDate } from '../lib/recurrence';
-import { CatDot, SectionHead, NavBtn } from '../components/atoms';
+import { CatDot, SectionHead, NavBtn, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
-const TOP_INSET = 20;
+
 
 const now = new Date();
 const THIS_YEAR  = now.getFullYear();
@@ -22,8 +22,9 @@ function RecurIcon() {
   );
 }
 
-export function CalendarScreen({ events, onEditEvent }: {
+export function CalendarScreen({ events, tasks, onEditEvent }: {
   events: CalEvent[];
+  tasks: Task[];
   onEditEvent: (ev: CalEvent) => void;
 }) {
   const [month, setMonth] = useState(THIS_MONTH);
@@ -39,19 +40,23 @@ export function CalendarScreen({ events, onEditEvent }: {
     return cells;
   }, [month, year]);
 
-  // Compute dots dynamically from events
+  // Compute dots dynamically from events + date-based tasks
   const dots = useMemo(() => {
     const map: Record<number, string[]> = {};
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month, d);
-      const dayEvents = events.filter(ev => isItemOnDate(ev.date, ev.recurrence, date));
-      if (dayEvents.length) {
-        map[d] = [...new Set(dayEvents.map(ev => ev.cat))];
-      }
+      const evCats = events
+        .filter(ev => isItemOnDate(ev.date, ev.recurrence, date))
+        .map(ev => ev.cat);
+      const taskCats = tasks
+        .filter(t => t.date && isItemOnDate(t.date, t.recurrence, date))
+        .map(t => t.cat);
+      const all = [...new Set([...evCats, ...taskCats])];
+      if (all.length) map[d] = all;
     }
     return map;
-  }, [events, month, year]);
+  }, [events, tasks, month, year]);
 
   const selDate  = new Date(year, month, sel);
   const selEvents = events
@@ -68,21 +73,19 @@ export function CalendarScreen({ events, onEditEvent }: {
   }
 
   return (
-    <div style={{ padding: `${TOP_INSET + 8}px 16px 100px` }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', marginBottom: 18, padding: '0 2px',
-      }}>
-        <h1 style={{
-          margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
-          fontSize: Math.round(34 * T.headingScale), color: T.color.text,
-        }}>{monthNames[month]} {year}</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <NavBtn onClick={prevMonth}><Icon.chevR size={18} color={T.color.text} /></NavBtn>
-          <NavBtn onClick={nextMonth}><Icon.chevL size={18} color={T.color.text} /></NavBtn>
-        </div>
-      </div>
+    <div style={{ paddingBottom: 100 }}>
+      <PageHeader
+        icon={<Icon.calendar size={24} color="#fff" sw={1.8} />}
+        title={`${monthNames[month]} ${year}`}
+        sub={selEvents.length > 0 ? `${selEvents.length} אירועים ב-${sel} בחודש` : undefined}
+        action={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <NavBtn onClick={prevMonth}><Icon.chevR size={18} color={T.color.text} /></NavBtn>
+            <NavBtn onClick={nextMonth}><Icon.chevL size={18} color={T.color.text} /></NavBtn>
+          </div>
+        }
+      />
+      <div style={{ padding: '0 16px' }}>
 
       {/* Calendar grid */}
       <div style={{
@@ -162,6 +165,7 @@ export function CalendarScreen({ events, onEditEvent }: {
             <div style={{ fontSize: 13.5, color: T.color.textMuted }}>אין אירועים מתוכננים ליום הזה</div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

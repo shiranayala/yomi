@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { theme } from '../theme';
 import type { Note, NoteTone } from '../lib/types';
-import { NavBtn, AddRow } from '../components/atoms';
+import { NavBtn, AddRow, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
-const TOP_INSET = 20;
+
 
 function NoteCard({ n }: { n: Note }) {
   const tone = T.noteTones[n.tone as NoteTone] ?? T.noteTones.plain;
@@ -41,17 +41,19 @@ export function NotesScreen({ notes, onAdd }: {
   const colB = sorted.filter((_, i) => i % 2 === 1);
 
   return (
-    <div style={{ padding: `${TOP_INSET + 8}px 18px 100px` }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px 16px' }}>
-        <h1 style={{
-          margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
-          fontSize: Math.round(34 * T.headingScale), color: T.color.text,
-        }}>פתקים</h1>
-        <NavBtn onClick={() => setAdding(a => !a)}>
-          <Icon.plus size={18} color={adding ? T.color.primary : T.color.text} />
-        </NavBtn>
-      </div>
+    <div style={{ paddingBottom: 100 }}>
+      <PageHeader
+        icon={<Icon.note size={25} color="#fff" sw={1.8} />}
+        title="פתקים"
+        sub={notes.length > 0 ? `${notes.length} פתקים` : undefined}
+        action={
+          <NavBtn onClick={() => setAdding(a => !a)}>
+            <Icon.plus size={18} color={adding ? T.color.primary : T.color.text} />
+          </NavBtn>
+        }
+      />
 
+      <div style={{ padding: '0 18px' }}>
       {adding && (
         <div style={{ marginBottom: 14 }}>
           <AddRow
@@ -75,6 +77,7 @@ export function NotesScreen({ notes, onAdd }: {
           לחץ על + כדי להוסיף
         </div>
       )}
+      </div>
     </div>
   );
 }

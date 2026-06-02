@@ -23,10 +23,19 @@ const TYPE_OPTIONS: { value: TaskType; label: string }[] = [
   { value: 'scheduled', label: 'מתוזמן' },
 ];
 
-const TODAY_OPTIONS: { value: string; label: string }[] = [
+type When = 'today' | 'later' | 'date';
+
+const WHEN_OPTIONS: { value: When; label: string }[] = [
   { value: 'today', label: 'היום' },
-  { value: 'later', label: 'בהמשך' },
+  { value: 'later', label: 'להמשך' },
+  { value: 'date',  label: 'תאריך' },
 ];
+
+function getInitialWhen(task?: Task): When {
+  if (!task || task.today) return 'today';
+  if (task.date) return 'date';
+  return 'later';
+}
 
 function newId() { return 'tsk' + Date.now(); }
 
@@ -34,7 +43,7 @@ export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
   const isEdit = !!initial;
   const [title, setTitle]     = useState(initial?.title ?? '');
   const [type, setType]       = useState<TaskType>(initial?.type ?? 'general');
-  const [when, setWhen]       = useState((!initial || initial.today) ? 'today' : 'later');
+  const [when, setWhen]       = useState<When>(getInitialWhen(initial));
   const [date, setDate]       = useState(initial?.date ?? todayStr());
   const [time, setTime]       = useState(initial?.time ?? '');
   const [cat, setCat]         = useState<CatId>(initial?.cat ?? 'personal');
@@ -43,7 +52,11 @@ export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
   const [notes, setNotes]     = useState(initial?.notes ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const valid = title.trim() && cat && (type === 'general' || (date && time));
+  const valid =
+    title.trim() && cat &&
+    (type === 'general'
+      ? (when !== 'date' || !!date)
+      : (!!date && !!time));
 
   function handleSave() {
     if (!valid) return;
@@ -52,10 +65,10 @@ export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
       title: title.trim(),
       cat,
       done: initial?.done ?? false,
-      time: type === 'scheduled' ? time : (time || null),
-      today: type === 'scheduled' ? false : when === 'today',
+      time: type === 'scheduled' ? time : null,
+      today: type === 'general' && when === 'today',
       type,
-      date: type === 'scheduled' ? date : undefined,
+      date: type === 'scheduled' ? date : (when === 'date' ? date : undefined),
       reminder,
       recurrence,
       notes: notes.trim() || undefined,
@@ -75,7 +88,12 @@ export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
 
       {type === 'general' && (
         <Field label="מתי">
-          <Pills options={TODAY_OPTIONS} value={when} onChange={setWhen} />
+          <Pills<When> options={WHEN_OPTIONS} value={when} onChange={setWhen} />
+          {when === 'date' && (
+            <div style={{ marginTop: 10 }}>
+              <DateInput value={date} onChange={setDate} />
+            </div>
+          )}
         </Field>
       )}
 

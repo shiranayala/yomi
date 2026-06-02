@@ -7,10 +7,10 @@ const T = theme;
 
 const TABS: { id: TabId; label: string; icon: (p: { size: number; color: string; sw: number }) => JSX.Element }[] = [
   { id: 'today',    label: 'היום',   icon: Icon.today },
+  { id: 'calendar', label: 'יומן',   icon: Icon.calendar },
   { id: 'tasks',    label: 'משימות', icon: Icon.checkCircle },
   { id: 'shopping', label: 'קניות',  icon: Icon.cart },
   { id: 'notes',    label: 'פתקים',  icon: Icon.note },
-  { id: 'calendar', label: 'יומן',   icon: Icon.calendar },
 ];
 
 export function TabBar({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
