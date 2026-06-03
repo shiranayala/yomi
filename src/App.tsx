@@ -264,6 +264,7 @@ export default function App() {
             events={events}
             tasks={tasks}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
+            onEditTask={t => setForm({ kind: 'editTask', task: t })}
           />
         )}
       </div>

@@ -22,10 +22,11 @@ function RecurIcon() {
   );
 }
 
-export function CalendarScreen({ events, tasks, onEditEvent }: {
+export function CalendarScreen({ events, tasks, onEditEvent, onEditTask }: {
   events: CalEvent[];
   tasks: Task[];
   onEditEvent: (ev: CalEvent) => void;
+  onEditTask: (t: Task) => void;
 }) {
   const [month, setMonth] = useState(THIS_MONTH);
   const [year, setYear]   = useState(THIS_YEAR);
@@ -64,8 +65,14 @@ export function CalendarScreen({ events, tasks, onEditEvent }: {
     .filter(ev => isItemOnDate(ev.date, ev.recurrence ?? 'once', selDate))
     .sort((a, b) => a.time.localeCompare(b.time));
 
+  const isSelToday = sel === TODAY_DAY && month === THIS_MONTH && year === THIS_YEAR;
+
   const selTasks = tasks
-    .filter(t => t.date && isItemOnDate(t.date, t.recurrence ?? 'once', selDate))
+    .filter(t => {
+      if (t.date && isItemOnDate(t.date, t.recurrence ?? 'once', selDate)) return true;
+      if (t.today && isSelToday) return true;
+      return false;
+    })
     .sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
 
   type SelItem =
@@ -173,12 +180,12 @@ export function CalendarScreen({ events, tasks, onEditEvent }: {
                 const t = item.t;
                 const recurring = t.recurrence && t.recurrence !== 'once';
                 return (
-                  <div key={t.id} style={{
+                  <div key={t.id} onClick={() => onEditTask(t)} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', background: T.color.surface,
                     borderRadius: T.radius.tile, boxShadow: T.cardShadow,
                     borderInlineStart: '3px solid ' + catColor(t.cat),
-                    opacity: t.done ? 0.55 : 1,
+                    opacity: t.done ? 0.55 : 1, cursor: 'pointer',
                   }}>
                     {t.time && <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{t.time}</span>}
                     <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text,
