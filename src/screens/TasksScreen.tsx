@@ -67,39 +67,34 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
 }) {
   const tStr = todayStr();
 
-  const { todayTasks, dateSections, laterTasks } = useMemo(() => {
+  const { todayTasks, laterTasks, dateSections } = useMemo(() => {
     const today: Task[] = [];
     const byDate: Record<string, Task[]> = {};
     const later: Task[] = [];
 
     tasks.forEach(t => {
-      // Belongs to today
       if (t.today || (t.date && isToday(t.date, t.recurrence))) {
         today.push(t);
         return;
       }
-      // Has a future/past date (not today)
       if (t.date) {
         if (!byDate[t.date]) byDate[t.date] = [];
         byDate[t.date].push(t);
         return;
       }
-      // No date, not today
       later.push(t);
     });
 
-    // Sort today by time
     today.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
 
-    // Sort date sections chronologically
     const sortedDates = Object.keys(byDate).sort();
     const sections = sortedDates.map(date => ({
       date,
-      label: isToday(date) ? 'היום' : formatDate(date),
+      label: formatDate(date),
       tasks: byDate[date].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '')),
     }));
 
-    return { todayTasks: today, dateSections: sections, laterTasks: later };
+    return { todayTasks: today, laterTasks: later, dateSections: sections };
   }, [tasks, tStr]);
 
   const doneTodayCount = todayTasks.filter(t => t.done).length;
@@ -127,7 +122,17 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
           )}
         </div>
 
-        {/* Date sections */}
+        {/* Later — no date */}
+        <div style={{ height: 18 }} />
+        <SectionHead>להמשך</SectionHead>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {laterTasks.map(t => (
+            <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+          ))}
+          <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddTask} />
+        </div>
+
+        {/* Future date sections */}
         {dateSections.map(({ date, label, tasks: dTasks }) => (
           <div key={date}>
             <div style={{ height: 18 }} />
@@ -139,16 +144,6 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
             </div>
           </div>
         ))}
-
-        {/* Later — no date */}
-        <div style={{ height: 18 }} />
-        <SectionHead>להמשך</SectionHead>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {laterTasks.map(t => (
-            <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
-          ))}
-          <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddTask} />
-        </div>
 
       </div>
     </div>

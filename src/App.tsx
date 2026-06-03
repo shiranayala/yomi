@@ -4,7 +4,7 @@ import { TabBar, type TabId } from './components/TabBar';
 import { BottomSheet } from './components/BottomSheet';
 import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
-import { NoteForm } from './components/NoteForm';
+import { NoteEditor } from './components/NoteEditor';
 import { TodayScreen } from './screens/TodayScreen';
 import { TasksScreen } from './screens/TasksScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
@@ -20,8 +20,7 @@ type FormState =
   | { kind: 'addTask' }
   | { kind: 'addEvent' }
   | { kind: 'editTask'; task: Task }
-  | { kind: 'editEvent'; event: CalEvent }
-  | { kind: 'editNote'; note: Note };
+  | { kind: 'editEvent'; event: CalEvent };
 
 // Strip undefined values — Firestore throws on undefined fields
 function clean(data: object): object {
@@ -49,6 +48,7 @@ export default function App() {
   const [notes, setNotes]       = useState<Note[]>([]);
   const [events, setEvents]     = useState<CalEvent[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
   const idc = useRef(300);
 
   // Load from Firestore on mount — skip known sample-data IDs
@@ -142,8 +142,14 @@ export default function App() {
     fsSet('notes', note.id, note);
   };
 
-  const addNote = (title: string) => {
-    saveNote({ id: 'nn' + (++idc.current), title, body: '', tone: 'plain', pinned: false });
+  const openNewNote = () => {
+    const newNote: Note = {
+      id: 'nn' + (++idc.current),
+      title: '', body: '', tone: 'plain', pinned: false,
+    };
+    setNotes(ns => [newNote, ...ns]);
+    fsSet('notes', newNote.id, newNote);
+    setEditingNote(newNote);
   };
 
   const deleteNote = (id: string) => {
@@ -157,11 +163,40 @@ export default function App() {
     fsDel('shopping', id);
   };
 
+  // ── Back button (Android / PWA) ──────────────────────────────────
+  useEffect(() => {
+    history.pushState(null, '', location.href);
+    const onPop = () => {
+      let handled = false;
+      if (editingNote) {
+        handled = true;
+        history.pushState(null, '', location.href);
+        // NoteEditor handles its own save on close
+        setEditingNote(null);
+      }
+      setForm(f => {
+        if (!handled && f.kind !== 'none') {
+          handled = true;
+          history.pushState(null, '', location.href);
+          return { kind: 'none' };
+        }
+        return f;
+      });
+      if (!handled) {
+        setTab(t => {
+          if (t !== 'today') { history.pushState(null, '', location.href); return 'today'; }
+          return t;
+        });
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [editingNote]);
+
   // ── Form helpers ─────────────────────────────────────────────────
   const closeForm = () => setForm({ kind: 'none' });
   const isTaskForm  = form.kind === 'addTask'  || form.kind === 'editTask';
   const isEventForm = form.kind === 'addEvent' || form.kind === 'editEvent';
-  const isNoteForm  = form.kind === 'editNote';
 
   return (
     <div dir="rtl" style={{
@@ -194,7 +229,11 @@ export default function App() {
           <ShoppingScreen shopping={shopping} onToggle={toggleShop} onAdd={addShop} onDelete={deleteShop} />
         )}
         {tab === 'notes' && (
-          <NotesScreen notes={notes} onAdd={addNote} onEdit={n => setForm({ kind: 'editNote', note: n })} />
+          <NotesScreen
+            notes={notes}
+            onAdd={openNewNote}
+            onEdit={n => setEditingNote(n)}
+          />
         )}
         {tab === 'calendar' && (
           <CalendarScreen
@@ -206,6 +245,18 @@ export default function App() {
       </div>
 
       <TabBar tab={tab} setTab={setTab} />
+
+      {/* Note editor — full-screen overlay */}
+      {editingNote && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
+          <NoteEditor
+            note={editingNote}
+            onSave={saveNote}
+            onDelete={id => { deleteNote(id); setEditingNote(null); }}
+            onClose={() => setEditingNote(null)}
+          />
+        </div>
+      )}
 
       <BottomSheet
         open={isTaskForm}
@@ -232,17 +283,6 @@ export default function App() {
             initial={form.kind === 'editEvent' ? form.event : undefined}
             onSave={ev => { saveEvent(ev); closeForm(); }}
             onDelete={form.kind === 'editEvent' ? (id => { deleteEvent(id); closeForm(); }) : undefined}
-            onClose={closeForm}
-          />
-        )}
-      </BottomSheet>
-
-      <BottomSheet open={isNoteForm} onClose={closeForm} title="עריכת פתק">
-        {isNoteForm && (
-          <NoteForm
-            note={form.note}
-            onSave={n => { saveNote(n); closeForm(); }}
-            onDelete={id => { deleteNote(id); closeForm(); }}
             onClose={closeForm}
           />
         )}

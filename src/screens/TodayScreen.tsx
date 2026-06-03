@@ -159,10 +159,10 @@ export function TodayScreen({ tasks, events, onToggleTask, onAddTask, onEditTask
   const dateLabel = `יום ${DAY_NAMES[now.getDay()]} · ${now.getDate()} ב${monthNames[now.getMonth()]}`;
 
   const scheduledToday = tasks.filter(t =>
-    t.type === 'scheduled' && t.date && isToday(t.date, t.recurrence)
+    t.time && (t.today || (t.date && isToday(t.date, t.recurrence)))
   );
   const generalToday = tasks.filter(t =>
-    t.type !== 'scheduled' && (t.today || (t.date && isToday(t.date, t.recurrence)))
+    !t.time && (t.today || (t.date && isToday(t.date, t.recurrence)))
   );
 
   const todayAllCount = scheduledToday.length + generalToday.length;

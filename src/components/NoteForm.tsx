@@ -34,11 +34,11 @@ export function NoteForm({ note, onSave, onDelete, onClose }: Props) {
   return (
     <div dir="rtl" style={{ fontFamily: T.fonts.body }}>
       <Field label="כותרת" required>
-        <TextInput value={title} onChange={setTitle} placeholder="כותרת הפתק" />
+        <TextInput value={title} onChange={setTitle} />
       </Field>
 
       <Field label="תוכן (אופציונלי)">
-        <TextInput value={body} onChange={setBody} placeholder="כתבי כאן..." multiline />
+        <TextInput value={body} onChange={setBody} multiline />
       </Field>
 
       <Field label="צבע">

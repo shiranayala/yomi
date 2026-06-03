@@ -22,18 +22,28 @@ function newId() { return 'ev' + Date.now(); }
 
 export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
   const isEdit = !!initial;
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [date, setDate]   = useState(initial?.date ?? todayStr());
-  const [time, setTime]   = useState(initial?.time ?? '');
-  const [end, setEnd]     = useState(initial?.end ?? '');
-  const [cat, setCat]     = useState<CatId>(initial?.cat ?? 'personal');
-  const [place, setPlace] = useState(initial?.place ?? '');
-  const [reminder, setReminder] = useState<Reminder>(initial?.reminder ?? 'none');
+  const [title, setTitle]   = useState(initial?.title ?? '');
+  const [date, setDate]     = useState(initial?.date ?? todayStr());
+  const [time, setTime]     = useState(initial?.time ?? '');
+  const [end, setEnd]       = useState(initial?.end ?? '');
+  const [cat, setCat]       = useState<CatId>(initial?.cat ?? 'personal');
+  const [place, setPlace]   = useState(initial?.place ?? '');
+  const [reminder, setReminder]     = useState<Reminder>(initial?.reminder ?? 'none');
   const [recurrence, setRecurrence] = useState<Recurrence>(initial?.recurrence ?? 'once');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [notes, setNotes]   = useState(initial?.notes ?? '');
+  const [expanded, setExpanded] = useState(
+    isEdit && (
+      (initial?.cat ?? 'personal') !== 'personal' ||
+      !!initial?.place || !!initial?.notes ||
+      (initial?.reminder ?? 'none') !== 'none' ||
+      (initial?.recurrence ?? 'once') !== 'once'
+    )
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const valid = title.trim() && date && time && cat;
+  const endTimeError = end && time && end <= time
+    ? 'שעת הסיום חייבת להיות אחרי שעת ההתחלה' : '';
+  const valid = title.trim() && date && time && !endTimeError;
 
   function handleSave() {
     if (!valid) return;
@@ -53,47 +63,68 @@ export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
   return (
     <div dir="rtl" style={{ fontFamily: T.fonts.body }}>
       <Field label="שם האירוע" required>
-        <TextInput value={title} onChange={setTitle} placeholder="למשל: פגישה עם מיכל" />
+        <TextInput value={title} onChange={setTitle} />
+      </Field>
+
+      <Field label="תאריך" required>
+        <DateInput value={date} onChange={setDate} />
       </Field>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="תאריך" required>
-          <DateInput value={date} onChange={setDate} />
-        </Field>
         <Field label="שעת התחלה" required>
           <TimeInput value={time} onChange={setTime} />
         </Field>
+        <Field label="שעת סיום">
+          <TimeInput value={end} onChange={setEnd} />
+        </Field>
       </div>
+      {endTimeError && (
+        <div style={{ color: '#e05c5c', fontSize: 12.5, marginTop: -6, marginBottom: 10 }}>{endTimeError}</div>
+      )}
 
-      <Field label="שעת סיום (אופציונלי)">
-        <TimeInput value={end} onChange={setEnd} />
-      </Field>
+      {/* More details toggle */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5,
+          color: T.color.textMuted, fontSize: 13.5, fontWeight: 600,
+          padding: '4px 0 12px', fontFamily: T.fonts.body,
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <span style={{ display: 'inline-flex', transform: expanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .2s' }}>
+          <Icon.chevR size={13} color={T.color.textMuted} />
+        </span>
+        פרטים נוספים
+      </button>
 
-      <Field label="קטגוריה" required>
-        <CatPicker value={cat} onChange={setCat} />
-      </Field>
+      {expanded && (
+        <>
+          <Field label="קטגוריה">
+            <CatPicker value={cat} onChange={setCat} />
+          </Field>
 
-      <Field label="מיקום (אופציונלי)">
-        <TextInput value={place} onChange={setPlace} placeholder="למשל: זום, בית קפה..." />
-      </Field>
+          <Field label="מיקום (אופציונלי)">
+            <TextInput value={place} onChange={setPlace} />
+          </Field>
 
-      <Divider />
+          <Field label="תזכורת">
+            <Pills<Reminder> options={REMINDER_OPTIONS} value={reminder} onChange={setReminder} />
+          </Field>
 
-      <Field label="תזכורת">
-        <Pills<Reminder> options={REMINDER_OPTIONS} value={reminder} onChange={setReminder} />
-      </Field>
+          <Field label="חזרה">
+            <Pills<Recurrence> options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+          </Field>
 
-      <Field label="חזרה">
-        <Pills<Recurrence> options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
-      </Field>
+          <Field label="הערות (אופציונלי)">
+            <TextInput value={notes} onChange={setNotes} multiline />
+          </Field>
 
-      <Divider />
+          <Divider />
+        </>
+      )}
 
-      <Field label="הערות (אופציונלי)">
-        <TextInput value={notes} onChange={setNotes} placeholder="כל מה שרלוונטי..." multiline />
-      </Field>
-
-      {/* Save button */}
       <button
         onClick={handleSave}
         disabled={!valid}
@@ -107,7 +138,6 @@ export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
         }}
       >{isEdit ? 'שמור שינויים' : 'הוסף אירוע'}</button>
 
-      {/* Delete button */}
       {isEdit && onDelete && (
         <>
           <button onClick={() => setConfirmDelete(true)} style={{

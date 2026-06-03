@@ -1,15 +1,32 @@
 import { useState } from 'react';
 import { theme } from '../theme';
-import type { Task, CatId, Reminder, Recurrence, TaskType } from '../lib/types';
+import type { Task, CatId, Recurrence } from '../lib/types';
 import { todayStr } from '../lib/recurrence';
 import {
   Field, TextInput, DateInput, TimeInput, Pills, CatPicker,
-  REMINDER_OPTIONS, RECURRENCE_OPTIONS, Divider,
+  RECURRENCE_OPTIONS, Divider,
 } from './FormFields';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from '../icons';
 
 const T = theme;
+
+type When = 'later' | 'today' | 'date';
+
+const WHEN_OPTIONS: { value: When; label: string }[] = [
+  { value: 'later', label: 'להמשך' },
+  { value: 'today', label: 'היום'  },
+  { value: 'date',  label: 'תאריך' },
+];
+
+function getInitialWhen(task?: Task): When {
+  if (!task) return 'today';
+  if (task.today) return 'today';
+  if (task.date) return 'date';
+  return 'later';
+}
+
+function newId() { return 'tsk' + Date.now(); }
 
 interface Props {
   initial?: Task;
@@ -18,116 +35,105 @@ interface Props {
   onClose: () => void;
 }
 
-const TYPE_OPTIONS: { value: TaskType; label: string }[] = [
-  { value: 'general',   label: 'כללי' },
-  { value: 'scheduled', label: 'מתוזמן' },
-];
-
-type When = 'today' | 'later' | 'date';
-
-const WHEN_OPTIONS: { value: When; label: string }[] = [
-  { value: 'today', label: 'היום' },
-  { value: 'later', label: 'להמשך' },
-  { value: 'date',  label: 'תאריך' },
-];
-
-function getInitialWhen(task?: Task): When {
-  if (!task || task.today) return 'today';
-  if (task.date) return 'date';
-  return 'later';
-}
-
-function newId() { return 'tsk' + Date.now(); }
-
 export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
   const isEdit = !!initial;
   const [title, setTitle]     = useState(initial?.title ?? '');
-  const [type, setType]       = useState<TaskType>(initial?.type ?? 'general');
   const [when, setWhen]       = useState<When>(getInitialWhen(initial));
   const [date, setDate]       = useState(initial?.date ?? todayStr());
   const [time, setTime]       = useState(initial?.time ?? '');
   const [cat, setCat]         = useState<CatId>(initial?.cat ?? 'personal');
-  const [reminder, setReminder] = useState<Reminder>(initial?.reminder ?? 'none');
   const [recurrence, setRecurrence] = useState<Recurrence>(initial?.recurrence ?? 'once');
   const [notes, setNotes]     = useState(initial?.notes ?? '');
+  const [expanded, setExpanded] = useState(
+    isEdit && ((initial?.cat ?? 'personal') !== 'personal' || !!initial?.notes)
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const valid =
-    title.trim() && cat &&
-    (type === 'general'
-      ? (when !== 'date' || !!date)
-      : (!!date && !!time));
+    title.trim() &&
+    (when !== 'date' || !!date);
 
   function handleSave() {
     if (!valid) return;
+    const hasTime = !!time;
     onSave({
       id: initial?.id ?? newId(),
       title: title.trim(),
       cat,
       done: initial?.done ?? false,
-      time: type === 'scheduled' ? time : null,
-      today: type === 'general' && when === 'today',
-      type,
-      date: type === 'scheduled' ? date : (when === 'date' ? date : undefined),
-      reminder,
-      recurrence,
+      time: hasTime ? time : null,
+      today: when === 'today',
+      type: hasTime ? 'scheduled' : 'general',
+      date: when === 'date' ? date : undefined,
+      recurrence: when === 'date' ? recurrence : 'once',
       notes: notes.trim() || undefined,
+      reminder: initial?.reminder,
     });
   }
 
   return (
     <div dir="rtl" style={{ fontFamily: T.fonts.body }}>
       <Field label="שם המשימה" required>
-        <TextInput value={title} onChange={setTitle} placeholder="למשל: לקנות מתנה לנועה" />
+        <TextInput value={title} onChange={setTitle} />
       </Field>
 
-      <Field label="סוג">
-        <Pills<TaskType> options={TYPE_OPTIONS} value={type} onChange={setType} />
+      <Field label="מתי" required>
+        <Pills<When> options={WHEN_OPTIONS} value={when} onChange={setWhen} />
       </Field>
 
-      {type === 'general' && (
-        <Field label="מתי">
-          <Pills<When> options={WHEN_OPTIONS} value={when} onChange={setWhen} />
-          {when === 'date' && (
-            <div style={{ marginTop: 10 }}>
-              <DateInput value={date} onChange={setDate} />
-            </div>
-          )}
+      {when === 'today' && (
+        <Field label="שעה (אופציונלי)">
+          <TimeInput value={time} onChange={setTime} />
         </Field>
       )}
 
-      {type === 'scheduled' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {when === 'date' && (
+        <>
           <Field label="תאריך" required>
             <DateInput value={date} onChange={setDate} />
           </Field>
-          <Field label="שעה" required>
+          <Field label="שעה (אופציונלי)">
             <TimeInput value={time} onChange={setTime} />
           </Field>
-        </div>
+        </>
       )}
 
-      <Field label="קטגוריה" required>
-        <CatPicker value={cat} onChange={setCat} />
-      </Field>
+      {/* More details toggle */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 5,
+          color: T.color.textMuted, fontSize: 13.5, fontWeight: 600,
+          padding: '4px 0 12px', fontFamily: T.fonts.body,
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <span style={{ display: 'inline-flex', transform: expanded ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .2s' }}>
+          <Icon.chevR size={13} color={T.color.textMuted} />
+        </span>
+        פרטים נוספים
+      </button>
 
-      <Divider />
+      {expanded && (
+        <>
+          <Field label="קטגוריה">
+            <CatPicker value={cat} onChange={setCat} />
+          </Field>
 
-      {type === 'scheduled' && (
-        <Field label="תזכורת">
-          <Pills<Reminder> options={REMINDER_OPTIONS} value={reminder} onChange={setReminder} />
-        </Field>
+          {when === 'date' && (
+            <Field label="חזרה">
+              <Pills<Recurrence> options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+            </Field>
+          )}
+
+          <Field label="הערות (אופציונלי)">
+            <TextInput value={notes} onChange={setNotes} multiline />
+          </Field>
+
+          <Divider />
+        </>
       )}
-
-      <Field label="חזרה">
-        <Pills<Recurrence> options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
-      </Field>
-
-      <Divider />
-
-      <Field label="הערות (אופציונלי)">
-        <TextInput value={notes} onChange={setNotes} placeholder="כל מה שרלוונטי..." multiline />
-      </Field>
 
       <button
         onClick={handleSave}
