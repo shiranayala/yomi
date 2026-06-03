@@ -48,7 +48,6 @@ export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
       recurrence,
       notes: notes.trim() || undefined,
     });
-    onClose();
   }
 
   return (

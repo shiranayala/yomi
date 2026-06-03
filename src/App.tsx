@@ -211,8 +211,8 @@ export default function App() {
         {isTaskForm && (
           <TaskForm
             initial={form.kind === 'editTask' ? form.task : undefined}
-            onSave={saveTask}
-            onDelete={form.kind === 'editTask' ? deleteTask : undefined}
+            onSave={t => { saveTask(t); closeForm(); }}
+            onDelete={form.kind === 'editTask' ? (id => { deleteTask(id); closeForm(); }) : undefined}
             onClose={closeForm}
           />
         )}
@@ -226,8 +226,8 @@ export default function App() {
         {isEventForm && (
           <EventForm
             initial={form.kind === 'editEvent' ? form.event : undefined}
-            onSave={saveEvent}
-            onDelete={form.kind === 'editEvent' ? deleteEvent : undefined}
+            onSave={ev => { saveEvent(ev); closeForm(); }}
+            onDelete={form.kind === 'editEvent' ? (id => { deleteEvent(id); closeForm(); }) : undefined}
             onClose={closeForm}
           />
         )}
