@@ -23,14 +23,19 @@ type FormState =
   | { kind: 'editEvent'; event: CalEvent }
   | { kind: 'editNote'; note: Note };
 
+// Strip undefined values — Firestore throws on undefined fields
+function clean(data: object): object {
+  return JSON.parse(JSON.stringify(data));
+}
+
 // Firestore helpers
 function fsSet(col: string, id: string, data: object) {
   if (!db) return;
-  setDoc(doc(db, col, id), data);
+  setDoc(doc(db, col, id), clean(data)).catch(console.error);
 }
 function fsUpdate(col: string, id: string, data: object) {
   if (!db) return;
-  updateDoc(doc(db, col, id), data);
+  updateDoc(doc(db, col, id), clean(data)).catch(console.error);
 }
 function fsDel(col: string, id: string) {
   if (!db) return;
