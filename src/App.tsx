@@ -6,12 +6,16 @@ import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
 import { NoteEditor } from './components/NoteEditor';
 import { TodayScreen } from './screens/TodayScreen';
-
 import { TasksScreen } from './screens/TasksScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
-import { db, collection, doc, getDocs, setDoc, updateDoc, deleteDoc } from './lib/firebase';
+import { AuthScreen } from './screens/AuthScreen';
+import {
+  db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
+  onAuthStateChanged, authSignOut,
+  type User,
+} from './lib/firebase';
 import type { Task, ShoppingItem, Note, CalEvent, Tag } from './lib/types';
 
 const T = theme;
@@ -23,62 +27,64 @@ type FormState =
   | { kind: 'editTask'; task: Task }
   | { kind: 'editEvent'; event: CalEvent };
 
-// Strip undefined values — Firestore throws on undefined fields
 function clean(data: object): object {
   return JSON.parse(JSON.stringify(data));
 }
 
-// Firestore helpers
-function fsSet(col: string, id: string, data: object) {
-  if (!db) return;
-  setDoc(doc(db, col, id), clean(data)).catch(console.error);
-}
-function fsUpdate(col: string, id: string, data: object) {
-  if (!db) return;
-  updateDoc(doc(db, col, id), clean(data)).catch(console.error);
-}
-function fsDel(col: string, id: string) {
-  if (!db) return;
-  deleteDoc(doc(db, col, id));
-}
-
 export default function App() {
+  // ── Auth ──────────────────────────────────────────────────────────
+  const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!auth) return;
+    return onAuthStateChanged(auth, u => setAuthUser(u));
+  }, []);
+
+  // ── App state ─────────────────────────────────────────────────────
   const [tab, setTab]           = useState<TabId>('today');
   const [tasks, setTasks]       = useState<Task[]>([]);
   const [shopping, setShopping] = useState<ShoppingItem[]>([]);
   const [notes, setNotes]       = useState<Note[]>([]);
   const [events, setEvents]     = useState<CalEvent[]>([]);
+  const [tags, setTags]         = useState<Tag[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [tags, setTags]         = useState<Tag[]>([]);
   const idc = useRef(300);
 
-  // Load from Firestore on mount — skip known sample-data IDs
+  const uid = authUser?.uid ?? null;
+
+  // ── Firestore helpers (user-scoped) ──────────────────────────────
+  function fsSet(col: string, id: string, data: object) {
+    if (!db || !uid) return;
+    setDoc(doc(db, 'users', uid, col, id), clean(data)).catch(console.error);
+  }
+  function fsUpdate(col: string, id: string, data: object) {
+    if (!db || !uid) return;
+    updateDoc(doc(db, 'users', uid, col, id), clean(data)).catch(console.error);
+  }
+  function fsDel(col: string, id: string) {
+    if (!db || !uid) return;
+    deleteDoc(doc(db, 'users', uid, col, id));
+  }
+
+  // ── Load data when user changes ───────────────────────────────────
   useEffect(() => {
-    if (!db) return;
-    const SAMPLE_IDS = new Set(['e1','e2','e3','e4','e5','t1','t2','t3','t4','t5','t6','t7','t8','s1','s2','s3','s4','s5','s6','s7','s8','s9','n1','n2','n3','n4','n5']);
-
-    async function load<T extends { id: string }>(col: string, setter: (v: T[]) => void) {
-      const snap = await getDocs(collection(db!, col));
-      const real: T[] = [];
-      await Promise.all(snap.docs.map(async d => {
-        if (SAMPLE_IDS.has(d.id)) {
-          await deleteDoc(doc(db!, col, d.id));
-        } else {
-          real.push(d.data() as T);
-        }
-      }));
-      setter(real);
+    if (!uid || !db) {
+      setTasks([]); setEvents([]); setNotes([]); setShopping([]); setTags([]);
+      return;
     }
-
+    async function load<T>(col: string, setter: (v: T[]) => void) {
+      const snap = await getDocs(collection(db!, 'users', uid!, col));
+      setter(snap.docs.map(d => d.data() as T));
+    }
     load<Task>('tasks', setTasks);
     load<ShoppingItem>('shopping', setShopping);
     load<Note>('notes', setNotes);
     load<CalEvent>('events', setEvents);
     load<Tag>('tags', setTags);
-  }, []);
+  }, [uid]);
 
-  // ── Task operations ──────────────────────────────────────────────
+  // ── Task operations ───────────────────────────────────────────────
   const toggleTask = (id: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
@@ -106,7 +112,7 @@ export default function App() {
     });
   };
 
-  // ── Event operations ─────────────────────────────────────────────
+  // ── Event operations ──────────────────────────────────────────────
   const saveEvent = (ev: CalEvent) => {
     setEvents(evs => {
       const isNew = !evs.find(x => x.id === ev.id);
@@ -120,7 +126,7 @@ export default function App() {
     fsDel('events', id);
   };
 
-  // ── Shopping operations ──────────────────────────────────────────
+  // ── Shopping operations ───────────────────────────────────────────
   const toggleShop = (id: string) => {
     setShopping(ss => {
       const next = ss.map(s => s.id === id ? { ...s, done: !s.done } : s);
@@ -136,7 +142,12 @@ export default function App() {
     fsSet('shopping', item.id, item);
   };
 
-  // ── Note operations ──────────────────────────────────────────────
+  const deleteShop = (id: string) => {
+    setShopping(ss => ss.filter(s => s.id !== id));
+    fsDel('shopping', id);
+  };
+
+  // ── Note operations ───────────────────────────────────────────────
   const saveNote = (note: Note) => {
     setNotes(ns => {
       const isNew = !ns.find(x => x.id === note.id);
@@ -180,13 +191,12 @@ export default function App() {
     }));
   };
 
-  // ── Shopping delete ──────────────────────────────────────────────
-  const deleteShop = (id: string) => {
-    setShopping(ss => ss.filter(s => s.id !== id));
-    fsDel('shopping', id);
+  // ── Sign out ──────────────────────────────────────────────────────
+  const handleSignOut = async () => {
+    if (auth) await authSignOut(auth);
   };
 
-  // ── Back button (Android / PWA) ──────────────────────────────────
+  // ── Back button (Android / PWA) ───────────────────────────────────
   useEffect(() => {
     history.pushState(null, '', location.href);
     const onPop = () => {
@@ -194,7 +204,6 @@ export default function App() {
       if (editingNote) {
         handled = true;
         history.pushState(null, '', location.href);
-        // NoteEditor handles its own save on close
         setEditingNote(null);
       }
       setForm(f => {
@@ -216,10 +225,30 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPop);
   }, [editingNote]);
 
-  // ── Form helpers ─────────────────────────────────────────────────
+  // ── Form helpers ──────────────────────────────────────────────────
   const closeForm = () => setForm({ kind: 'none' });
   const isTaskForm  = form.kind === 'addTask'  || form.kind === 'editTask';
   const isEventForm = form.kind === 'addEvent' || form.kind === 'editEvent';
+
+  // ── Loading ───────────────────────────────────────────────────────
+  if (authUser === undefined) {
+    return (
+      <div style={{
+        height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
+        fontFamily: T.fonts.hand, fontSize: 52, color: '#fff',
+        maxWidth: 480, margin: '0 auto',
+      }}>
+        יומי
+      </div>
+    );
+  }
+
+  // ── Not authenticated ─────────────────────────────────────────────
+  if (!authUser) return <AuthScreen />;
+
+  // ── Authenticated ─────────────────────────────────────────────────
+  const firstName = (authUser.displayName ?? '').split(' ')[0];
 
   return (
     <div dir="rtl" style={{
@@ -232,12 +261,14 @@ export default function App() {
         {tab === 'today' && (
           <TodayScreen
             tasks={tasks} events={events}
+            userName={firstName}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
             onOpenAddTask={() => setForm({ kind: 'addTask' })}
             onOpenAddEvent={() => setForm({ kind: 'addEvent' })}
+            onSignOut={handleSignOut}
           />
         )}
         {tab === 'tasks' && (
@@ -271,7 +302,7 @@ export default function App() {
 
       <TabBar tab={tab} setTab={setTab} />
 
-      {/* Note editor — full-screen overlay */}
+      {/* Note editor overlay */}
       {editingNote && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
           <NoteEditor

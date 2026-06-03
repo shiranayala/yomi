@@ -4,11 +4,13 @@ import {
   getDocs, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, type Firestore,
 } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 
-const apiKey     = import.meta.env.VITE_FIREBASE_API_KEY;
-const projectId  = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const apiKey    = import.meta.env.VITE_FIREBASE_API_KEY;
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
-let db: Firestore | null = null;
+let db:   Firestore | null = null;
+let auth: ReturnType<typeof getAuth> | null = null;
 
 if (apiKey && projectId) {
   const app = initializeApp({
@@ -19,7 +21,20 @@ if (apiKey && projectId) {
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId:             import.meta.env.VITE_FIREBASE_APP_ID,
   });
-  db = getFirestore(app);
+  db   = getFirestore(app);
+  auth = getAuth(app);
 }
 
-export { db, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query };
+export { db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query };
+
+export type { User } from 'firebase/auth';
+export {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
+  signOut as authSignOut,
+  onAuthStateChanged,
+} from 'firebase/auth';

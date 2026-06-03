@@ -3,7 +3,15 @@ import type { Task, CalEvent } from '../lib/types';
 import { isToday } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead, ProgressRing } from '../components/atoms';
 import { Icon } from '../icons';
-import { monthNames, weather, userName } from '../lib/data';
+import { monthNames, weather } from '../lib/data';
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return 'בוקר טוב';
+  if (h >= 12 && h < 17) return 'צהריים טובים';
+  if (h >= 17 && h < 21) return 'ערב טוב';
+  return 'לילה טוב';
+}
 
 const T = theme;
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -145,15 +153,17 @@ function TaskItem({ t, onToggle, onClick }: {
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenAddTask, onOpenAddEvent }: {
+export function TodayScreen({ tasks, events, userName, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenAddTask, onOpenAddEvent, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
+  userName: string;
   onToggleTask: (id: string) => void;
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (ev: CalEvent) => void;
   onOpenAddTask: () => void;
   onOpenAddEvent: () => void;
+  onSignOut: () => void;
 }) {
   const now = new Date();
   const dateLabel = `יום ${DAY_NAMES[now.getDay()]} · ${now.getDate()} ב${monthNames[now.getMonth()]}`;
@@ -190,7 +200,7 @@ export function TodayScreen({ tasks, events, onToggleTask, onAddTask, onEditTask
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{dateLabel}</div>
             <div style={{ fontFamily: T.fonts.hand, fontSize: 40, lineHeight: 1.05, marginTop: 6 }}>
-              {T.greeting}, {userName}
+              {getGreeting()}{userName ? `, ${userName}` : ''}
             </div>
             <div style={{ fontSize: 14, opacity: 0.9, marginTop: 4 }}>מה על הפרק היום?</div>
           </div>
@@ -221,6 +231,18 @@ export function TodayScreen({ tasks, events, onToggleTask, onAddTask, onEditTask
             }}>
               <Icon.calendar size={12} color={T.color.onPrimary} sw={2} />
               אירוע
+            </button>
+            <button onClick={onSignOut} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 99, padding: '5px 10px',
+              color: 'rgba(255,255,255,0.65)', fontSize: 11.5, fontWeight: 500,
+              cursor: 'pointer', fontFamily: T.fonts.body,
+              WebkitTapHighlightColor: 'transparent', gap: 4,
+            }}>
+              <Icon.logout size={11} color="rgba(255,255,255,0.65)" />
+              יציאה
             </button>
           </div>
         </div>
