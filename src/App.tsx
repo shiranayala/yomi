@@ -4,12 +4,12 @@ import { TabBar, type TabId } from './components/TabBar';
 import { BottomSheet } from './components/BottomSheet';
 import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
+import { NoteForm } from './components/NoteForm';
 import { TodayScreen } from './screens/TodayScreen';
 import { TasksScreen } from './screens/TasksScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
-import { sampleTasks, sampleShopping, sampleNotes, sampleEvents } from './lib/data';
 import { db, collection, doc, getDocs, setDoc, updateDoc, deleteDoc } from './lib/firebase';
 import type { Task, ShoppingItem, Note, CalEvent } from './lib/types';
 
@@ -20,7 +20,8 @@ type FormState =
   | { kind: 'addTask' }
   | { kind: 'addEvent' }
   | { kind: 'editTask'; task: Task }
-  | { kind: 'editEvent'; event: CalEvent };
+  | { kind: 'editEvent'; event: CalEvent }
+  | { kind: 'editNote'; note: Note };
 
 // Firestore helpers
 function fsSet(col: string, id: string, data: object) {
@@ -38,35 +39,23 @@ function fsDel(col: string, id: string) {
 
 export default function App() {
   const [tab, setTab]           = useState<TabId>('today');
-  const [tasks, setTasks]       = useState<Task[]>(sampleTasks.map(t => ({ ...t })));
-  const [shopping, setShopping] = useState<ShoppingItem[]>(sampleShopping.map(s => ({ ...s })));
-  const [notes, setNotes]       = useState<Note[]>(sampleNotes.map(n => ({ ...n })));
-  const [events, setEvents]     = useState<CalEvent[]>(sampleEvents.map(e => ({ ...e })));
+  const [tasks, setTasks]       = useState<Task[]>([]);
+  const [shopping, setShopping] = useState<ShoppingItem[]>([]);
+  const [notes, setNotes]       = useState<Note[]>([]);
+  const [events, setEvents]     = useState<CalEvent[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const idc = useRef(300);
 
-  // Load from Firestore on mount; seed collection if empty
+  // Load from Firestore on mount
   useEffect(() => {
     if (!db) return;
+    const load = <T,>(col: string, setter: (v: T[]) => void) =>
+      getDocs(collection(db!, col)).then(snap => setter(snap.docs.map(d => d.data() as T)));
 
-    async function loadOrSeed<T extends { id: string }>(
-      col: string,
-      seed: T[],
-      setter: (v: T[]) => void,
-    ) {
-      const snap = await getDocs(collection(db!, col));
-      if (snap.empty) {
-        await Promise.all(seed.map(item => setDoc(doc(db!, col, item.id), item)));
-        setter(seed);
-      } else {
-        setter(snap.docs.map(d => d.data() as T));
-      }
-    }
-
-    loadOrSeed('tasks',    sampleTasks.map(t => ({ ...t })),    setTasks);
-    loadOrSeed('shopping', sampleShopping.map(s => ({ ...s })), setShopping);
-    loadOrSeed('notes',    sampleNotes.map(n => ({ ...n })),    setNotes);
-    loadOrSeed('events',   sampleEvents.map(e => ({ ...e })),   setEvents);
+    load<Task>('tasks', setTasks);
+    load<ShoppingItem>('shopping', setShopping);
+    load<Note>('notes', setNotes);
+    load<CalEvent>('events', setEvents);
   }, []);
 
   // ── Task operations ──────────────────────────────────────────────
@@ -129,16 +118,34 @@ export default function App() {
   };
 
   // ── Note operations ──────────────────────────────────────────────
-  const addNote = (title: string) => {
-    const note: Note = { id: 'nn' + (++idc.current), title, body: '', tone: 'plain', pinned: false };
-    setNotes(ns => [note, ...ns]);
+  const saveNote = (note: Note) => {
+    setNotes(ns => {
+      const isNew = !ns.find(x => x.id === note.id);
+      return isNew ? [note, ...ns] : ns.map(x => x.id === note.id ? note : x);
+    });
     fsSet('notes', note.id, note);
+  };
+
+  const addNote = (title: string) => {
+    saveNote({ id: 'nn' + (++idc.current), title, body: '', tone: 'plain', pinned: false });
+  };
+
+  const deleteNote = (id: string) => {
+    setNotes(ns => ns.filter(n => n.id !== id));
+    fsDel('notes', id);
+  };
+
+  // ── Shopping delete ──────────────────────────────────────────────
+  const deleteShop = (id: string) => {
+    setShopping(ss => ss.filter(s => s.id !== id));
+    fsDel('shopping', id);
   };
 
   // ── Form helpers ─────────────────────────────────────────────────
   const closeForm = () => setForm({ kind: 'none' });
   const isTaskForm  = form.kind === 'addTask'  || form.kind === 'editTask';
   const isEventForm = form.kind === 'addEvent' || form.kind === 'editEvent';
+  const isNoteForm  = form.kind === 'editNote';
 
   return (
     <div dir="rtl" style={{
@@ -168,10 +175,10 @@ export default function App() {
           />
         )}
         {tab === 'shopping' && (
-          <ShoppingScreen shopping={shopping} onToggle={toggleShop} onAdd={addShop} />
+          <ShoppingScreen shopping={shopping} onToggle={toggleShop} onAdd={addShop} onDelete={deleteShop} />
         )}
         {tab === 'notes' && (
-          <NotesScreen notes={notes} onAdd={addNote} />
+          <NotesScreen notes={notes} onAdd={addNote} onEdit={n => setForm({ kind: 'editNote', note: n })} />
         )}
         {tab === 'calendar' && (
           <CalendarScreen
@@ -209,6 +216,17 @@ export default function App() {
             initial={form.kind === 'editEvent' ? form.event : undefined}
             onSave={saveEvent}
             onDelete={form.kind === 'editEvent' ? deleteEvent : undefined}
+            onClose={closeForm}
+          />
+        )}
+      </BottomSheet>
+
+      <BottomSheet open={isNoteForm} onClose={closeForm} title="עריכת פתק">
+        {isNoteForm && (
+          <NoteForm
+            note={form.note}
+            onSave={n => { saveNote(n); closeForm(); }}
+            onDelete={id => { deleteNote(id); closeForm(); }}
             onClose={closeForm}
           />
         )}
