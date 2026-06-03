@@ -50,14 +50,12 @@ export function ShoppingScreen({ shopping, onToggle, onAdd, onDelete }: {
             }}>
               {shopping.filter(s => s.aisle === aisle).map((s, i, arr) => (
                 <div key={s.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                  opacity: s.done ? 0.5 : 1,
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
+                  opacity: s.done ? 0.45 : 1,
                   borderBottom: i < arr.length - 1 ? '1px solid ' + T.color.line : 'none',
                   transition: 'opacity .2s',
                 }}>
-                  <div onClick={() => onToggle(s.id)} style={{ cursor: 'pointer' }}>
-                    <Check checked={s.done} onToggle={() => onToggle(s.id)} />
-                  </div>
+                  <Check checked={s.done} onToggle={() => onToggle(s.id)} />
                   <span
                     onClick={() => onToggle(s.id)}
                     style={{
@@ -70,11 +68,11 @@ export function ShoppingScreen({ shopping, onToggle, onAdd, onDelete }: {
                     onClick={() => onDelete(s.id)}
                     style={{
                       border: 'none', background: 'transparent', cursor: 'pointer',
-                      padding: 4, display: 'flex', alignItems: 'center',
-                      opacity: 0.45, WebkitTapHighlightColor: 'transparent',
+                      padding: 6, display: 'flex', alignItems: 'center',
+                      opacity: 0.4, WebkitTapHighlightColor: 'transparent',
                     }}
                   >
-                    <Icon.x size={16} color={T.color.textMuted} />
+                    <Icon.x size={15} color={T.color.textMuted} />
                   </button>
                 </div>
               ))}

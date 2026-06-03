@@ -4,7 +4,7 @@ import type { Task, CatId, Recurrence } from '../lib/types';
 import { todayStr } from '../lib/recurrence';
 import {
   Field, TextInput, DateInput, TimeInput, Pills, CatPicker,
-  RECURRENCE_OPTIONS, Divider,
+  RecurrencePicker, Divider,
 } from './FormFields';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from '../icons';
@@ -123,7 +123,7 @@ export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
 
           {when === 'date' && (
             <Field label="חזרה">
-              <Pills<Recurrence> options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+              <RecurrencePicker value={recurrence} onChange={setRecurrence} />
             </Field>
           )}
 

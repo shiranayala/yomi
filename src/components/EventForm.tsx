@@ -4,7 +4,7 @@ import type { CalEvent, CatId, Reminder, Recurrence } from '../lib/types';
 import { todayStr } from '../lib/recurrence';
 import {
   Field, TextInput, DateInput, TimeInput, Pills, CatPicker,
-  REMINDER_OPTIONS, RECURRENCE_OPTIONS, Divider,
+  REMINDER_OPTIONS, RecurrencePicker, Divider,
 } from './FormFields';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from '../icons';
@@ -114,7 +114,7 @@ export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
           </Field>
 
           <Field label="חזרה">
-            <Pills<Recurrence> options={RECURRENCE_OPTIONS} value={recurrence} onChange={setRecurrence} />
+            <RecurrencePicker value={recurrence} onChange={setRecurrence} />
           </Field>
 
           <Field label="הערות (אופציונלי)">

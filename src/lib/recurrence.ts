@@ -29,6 +29,10 @@ export function isItemOnDate(
       return true;
     case 'weekly':
       return start.getDay() === check.getDay();
+    case 'biweekly': {
+      const diff = Math.round((check.getTime() - start.getTime()) / 86400000);
+      return diff % 14 === 0;
+    }
     case 'monthly':
       return start.getDate() === check.getDate();
   }

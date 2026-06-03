@@ -6,12 +6,13 @@ import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
 import { NoteEditor } from './components/NoteEditor';
 import { TodayScreen } from './screens/TodayScreen';
+
 import { TasksScreen } from './screens/TasksScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
 import { db, collection, doc, getDocs, setDoc, updateDoc, deleteDoc } from './lib/firebase';
-import type { Task, ShoppingItem, Note, CalEvent } from './lib/types';
+import type { Task, ShoppingItem, Note, CalEvent, Tag } from './lib/types';
 
 const T = theme;
 
@@ -49,6 +50,7 @@ export default function App() {
   const [events, setEvents]     = useState<CalEvent[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [tags, setTags]         = useState<Tag[]>([]);
   const idc = useRef(300);
 
   // Load from Firestore on mount — skip known sample-data IDs
@@ -73,6 +75,7 @@ export default function App() {
     load<ShoppingItem>('shopping', setShopping);
     load<Note>('notes', setNotes);
     load<CalEvent>('events', setEvents);
+    load<Tag>('tags', setTags);
   }, []);
 
   // ── Task operations ──────────────────────────────────────────────
@@ -157,6 +160,26 @@ export default function App() {
     fsDel('notes', id);
   };
 
+  // ── Tag operations ────────────────────────────────────────────────
+  const saveTag = (tag: Tag) => {
+    setTags(ts => {
+      const isNew = !ts.find(t => t.id === tag.id);
+      return isNew ? [...ts, tag] : ts.map(t => t.id === tag.id ? tag : t);
+    });
+    fsSet('tags', tag.id, tag);
+  };
+
+  const deleteTag = (tagId: string) => {
+    setTags(ts => ts.filter(t => t.id !== tagId));
+    fsDel('tags', tagId);
+    setNotes(ns => ns.map(n => {
+      if (!n.tags?.includes(tagId)) return n;
+      const updated = { ...n, tags: n.tags.filter(id => id !== tagId) };
+      fsUpdate('notes', n.id, { tags: updated.tags });
+      return updated;
+    }));
+  };
+
   // ── Shopping delete ──────────────────────────────────────────────
   const deleteShop = (id: string) => {
     setShopping(ss => ss.filter(s => s.id !== id));
@@ -231,6 +254,7 @@ export default function App() {
         {tab === 'notes' && (
           <NotesScreen
             notes={notes}
+            tags={tags}
             onAdd={openNewNote}
             onEdit={n => setEditingNote(n)}
           />
@@ -251,7 +275,10 @@ export default function App() {
         <div style={{ position: 'absolute', inset: 0, zIndex: 50 }}>
           <NoteEditor
             note={editingNote}
+            allTags={tags}
             onSave={saveNote}
+            onSaveTag={saveTag}
+            onDeleteTag={deleteTag}
             onDelete={id => { deleteNote(id); setEditingNote(null); }}
             onClose={() => setEditingNote(null)}
           />

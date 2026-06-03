@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { theme, catColor } from '../theme';
 import { categories } from '../lib/data';
 import type { CatId, Reminder, Recurrence } from '../lib/types';
@@ -124,11 +125,85 @@ export const REMINDER_OPTIONS: { value: Reminder; label: string }[] = [
 ];
 
 export const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
-  { value: 'once',    label: 'חד פעמי' },
-  { value: 'daily',   label: 'כל יום' },
-  { value: 'weekly',  label: 'כל שבוע' },
-  { value: 'monthly', label: 'כל חודש' },
+  { value: 'once',      label: 'חד פעמי' },
+  { value: 'daily',     label: 'מדי יום' },
+  { value: 'weekly',    label: 'מדי שבוע' },
+  { value: 'biweekly',  label: 'מדי שבועיים' },
+  { value: 'monthly',   label: 'מדי חודש' },
 ];
+
+export function RecurrencePicker({ value, onChange }: { value: Recurrence; onChange: (v: Recurrence) => void }) {
+  const [open, setOpen] = useState(false);
+  const label = RECURRENCE_OPTIONS.find(o => o.value === value)?.label ?? 'חד פעמי';
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          border: `2px solid ${T.color.primary}`,
+          borderRadius: 99, padding: '7px 14px',
+          background: T.color.primarySoft, color: T.color.primaryDeep,
+          fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+          fontFamily: T.fonts.body, transition: 'all .15s',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        {label}
+        <span style={{
+          display: 'inline-block',
+          transform: open ? 'rotate(180deg)' : 'none',
+          transition: 'transform .2s', fontSize: 11, lineHeight: 1,
+        }}>▾</span>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 100 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', insetInlineStart: 0,
+            background: T.color.surface, borderRadius: T.radius.tile,
+            boxShadow: T.cardShadow, zIndex: 101, minWidth: 170,
+            overflow: 'hidden',
+          }}>
+            {RECURRENCE_OPTIONS.map(opt => {
+              const active = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { onChange(opt.value); setOpen(false); }}
+                  style={{
+                    width: '100%', border: 'none', cursor: 'pointer',
+                    background: active ? T.color.primarySoft : 'transparent',
+                    color: active ? T.color.primaryDeep : T.color.text,
+                    padding: '11px 16px', fontSize: 14,
+                    fontWeight: active ? 700 : 500, fontFamily: T.fonts.body,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    textAlign: 'right', direction: 'rtl',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span style={{
+                    width: 16, height: 16, borderRadius: 99, flexShrink: 0,
+                    border: active ? `2px solid ${T.color.primary}` : `2px solid ${T.color.line}`,
+                    background: active ? T.color.primary : 'transparent',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {active && <span style={{ width: 6, height: 6, borderRadius: 99, background: '#fff' }} />}
+                  </span>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export function Divider() {
   return <div style={{ height: 1, background: T.color.line, margin: '4px 0 18px' }} />;

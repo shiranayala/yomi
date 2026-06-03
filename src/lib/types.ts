@@ -1,7 +1,7 @@
 export type CatId = 'work' | 'home' | 'health' | 'family' | 'personal';
 export type NoteTone = 'amber' | 'green' | 'blue' | 'purple' | 'plain';
 export type Reminder = 'none' | '15min' | '1hour' | '1day';
-export type Recurrence = 'once' | 'daily' | 'weekly' | 'monthly';
+export type Recurrence = 'once' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
 export type TaskType = 'general' | 'scheduled';
 
 export interface Category {
@@ -31,11 +31,18 @@ export interface ShoppingItem {
   aisle: string;
 }
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string; // palette key from TAG_COLORS
+}
+
 export interface Note {
   id: string;
   title: string;
   body: string;
-  tone: NoteTone;
+  tone?: NoteTone; // legacy
+  tags?: string[]; // tag IDs
   pinned: boolean;
 }
 
