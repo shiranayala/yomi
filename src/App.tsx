@@ -11,6 +11,7 @@ import { ShoppingScreen } from './screens/ShoppingScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
 import { AuthScreen } from './screens/AuthScreen';
+import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
 import {
   db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
   onAuthStateChanged, authSignOut,
@@ -34,6 +35,7 @@ function clean(data: object): object {
 export default function App() {
   // ── Auth ──────────────────────────────────────────────────────────
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
+  const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
     if (!auth) return;
@@ -196,6 +198,14 @@ export default function App() {
     if (auth) await authSignOut(auth);
   };
 
+  // ── Email verification ────────────────────────────────────────────
+  function isGoogleUser(u: User) {
+    return u.providerData.some(p => p.providerId === 'google.com');
+  }
+  const handleVerified = () => {
+    setReloadCount(c => c + 1);
+  };
+
   // ── Back button (Android / PWA) ───────────────────────────────────
   useEffect(() => {
     history.pushState(null, '', location.href);
@@ -247,8 +257,17 @@ export default function App() {
   // ── Not authenticated ─────────────────────────────────────────────
   if (!authUser) return <AuthScreen />;
 
+  // ── Email not verified (skip for Google users) ────────────────────
+  // reloadCount triggers re-render so auth.currentUser.emailVerified is re-read after reload()
+  const emailVerified = reloadCount >= 0 && (isGoogleUser(authUser)
+    || (auth?.currentUser?.emailVerified ?? authUser.emailVerified));
+  if (!emailVerified) {
+    return <VerifyEmailScreen user={authUser} onVerified={handleVerified} />;
+  }
+
   // ── Authenticated ─────────────────────────────────────────────────
   const firstName = (authUser.displayName ?? '').split(' ')[0];
+  const userEmail = authUser.email ?? '';
 
   return (
     <div dir="rtl" style={{
@@ -262,6 +281,7 @@ export default function App() {
           <TodayScreen
             tasks={tasks} events={events}
             userName={firstName}
+            userEmail={userEmail}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}

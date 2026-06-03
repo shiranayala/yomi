@@ -4,7 +4,7 @@ import {
   auth,
   GoogleAuthProvider, signInWithPopup,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendPasswordResetEmail, updateProfile,
+  sendPasswordResetEmail, sendEmailVerification, updateProfile,
 } from '../lib/firebase';
 
 const T = theme;
@@ -55,6 +55,7 @@ export function AuthScreen() {
       } else if (mode === 'register') {
         const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
+        await sendEmailVerification(cred.user);
       } else {
         await sendPasswordResetEmail(auth, email.trim());
         setInfo('נשלח מייל לאיפוס סיסמה');
