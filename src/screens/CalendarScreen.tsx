@@ -58,10 +58,24 @@ export function CalendarScreen({ events, tasks, onEditEvent }: {
     return map;
   }, [events, tasks, month, year]);
 
-  const selDate  = new Date(year, month, sel);
+  const selDate = new Date(year, month, sel);
+
   const selEvents = events
-    .filter(ev => isItemOnDate(ev.date, ev.recurrence, selDate))
+    .filter(ev => isItemOnDate(ev.date, ev.recurrence ?? 'once', selDate))
     .sort((a, b) => a.time.localeCompare(b.time));
+
+  const selTasks = tasks
+    .filter(t => t.date && isItemOnDate(t.date, t.recurrence ?? 'once', selDate))
+    .sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+
+  type SelItem =
+    | { kind: 'event'; ev: CalEvent; time: string }
+    | { kind: 'task';  t: Task;      time: string };
+
+  const selItems: SelItem[] = [
+    ...selEvents.map(ev => ({ kind: 'event' as const, ev, time: ev.time })),
+    ...selTasks.map(t  => ({ kind: 'task'  as const, t,  time: t.time ?? '' })),
+  ].sort((a, b) => a.time.localeCompare(b.time));
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
@@ -132,28 +146,48 @@ export function CalendarScreen({ events, tasks, onEditEvent }: {
 
       {/* Selected day */}
       <div style={{ marginTop: 22 }}>
-        <SectionHead sub={selEvents.length ? `${selEvents.length} אירועים` : ''}>
+        <SectionHead sub={selItems.length ? `${selItems.length} פריטים` : ''}>
           {sel} ב{monthNames[month]}
         </SectionHead>
 
-        {selEvents.length ? (
+        {selItems.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {selEvents.map(ev => {
-              const recurring = ev.recurrence && ev.recurrence !== 'once';
-              return (
-                <div key={ev.id} onClick={() => onEditEvent(ev)} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '12px 14px', background: T.color.surface,
-                  borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-                  borderInlineStart: '3px solid ' + catColor(ev.cat),
-                  cursor: 'pointer',
-                }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</span>
-                  <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text }}>{ev.title}</span>
-                  {recurring && <RecurIcon />}
-                  <CatDot id={ev.cat} size={9} />
-                </div>
-              );
+            {selItems.map(item => {
+              if (item.kind === 'event') {
+                const ev = item.ev;
+                const recurring = ev.recurrence && ev.recurrence !== 'once';
+                return (
+                  <div key={ev.id} onClick={() => onEditEvent(ev)} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 14px', background: T.color.surface,
+                    borderRadius: T.radius.tile, boxShadow: T.cardShadow,
+                    borderInlineStart: '3px solid ' + catColor(ev.cat), cursor: 'pointer',
+                  }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</span>
+                    <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text }}>{ev.title}</span>
+                    {recurring && <RecurIcon />}
+                    <CatDot id={ev.cat} size={9} />
+                  </div>
+                );
+              } else {
+                const t = item.t;
+                const recurring = t.recurrence && t.recurrence !== 'once';
+                return (
+                  <div key={t.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '12px 14px', background: T.color.surface,
+                    borderRadius: T.radius.tile, boxShadow: T.cardShadow,
+                    borderInlineStart: '3px solid ' + catColor(t.cat),
+                    opacity: t.done ? 0.55 : 1,
+                  }}>
+                    {t.time && <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{t.time}</span>}
+                    <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text,
+                      textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</span>
+                    {recurring && <RecurIcon />}
+                    <CatDot id={t.cat} size={9} />
+                  </div>
+                );
+              }
             })}
           </div>
         ) : (
@@ -162,7 +196,7 @@ export function CalendarScreen({ events, tasks, onEditEvent }: {
             background: T.color.surface, borderRadius: T.radius.card, boxShadow: T.cardShadow,
           }}>
             <div style={{ fontFamily: T.fonts.hand, fontSize: 22, color: T.color.text, marginBottom: 4 }}>יום פנוי לגמרי</div>
-            <div style={{ fontSize: 13.5, color: T.color.textMuted }}>אין אירועים מתוכננים ליום הזה</div>
+            <div style={{ fontSize: 13.5, color: T.color.textMuted }}>אין פריטים מתוכננים ליום הזה</div>
           </div>
         )}
       </div>

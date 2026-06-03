@@ -77,12 +77,11 @@ export default function App() {
 
   // ── Task operations ──────────────────────────────────────────────
   const toggleTask = (id: string) => {
-    setTasks(ts => {
-      const next = ts.map(t => t.id === id ? { ...t, done: !t.done } : t);
-      const t = next.find(t => t.id === id);
-      if (t) fsUpdate('tasks', id, { done: t.done });
-      return next;
-    });
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const newDone = !task.done;
+    setTasks(ts => ts.map(t => t.id === id ? { ...t, done: newDone } : t));
+    fsUpdate('tasks', id, { done: newDone });
   };
 
   const saveTask = (t: Task) => {

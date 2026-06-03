@@ -1,36 +1,39 @@
+import { useMemo } from 'react';
 import { theme, catColor } from '../theme';
 import type { Task } from '../lib/types';
-import { isToday } from '../lib/recurrence';
+import { isToday, todayStr } from '../lib/recurrence';
+import { monthNames } from '../lib/data';
 import { Check, Chip, AddRow, SectionHead, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
+const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
+function formatDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return `יום ${DAY_NAMES[date.getDay()]} · ${d} ב${monthNames[m - 1]}`;
+}
 
 function RecurIcon() {
   return (
-    <span title="משימה חוזרת" style={{ opacity: 0.55, display: 'inline-flex', alignItems: 'center' }}>
+    <span style={{ opacity: 0.55, display: 'inline-flex', alignItems: 'center' }}>
       <Icon.repeat size={12} color={T.color.textMuted} sw={1.8} />
     </span>
   );
 }
 
 function TaskItem({ t, onToggle, onClick }: {
-  t: Task;
-  onToggle: (id: string) => void;
-  onClick: () => void;
+  t: Task; onToggle: (id: string) => void; onClick: () => void;
 }) {
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
-    <div
-      onClick={onClick}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-        background: T.color.surface, borderRadius: T.radius.tile,
-        boxShadow: T.cardShadow, transition: 'opacity .2s', opacity: t.done ? 0.55 : 1,
-        cursor: 'pointer',
-      }}
-    >
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+      background: T.color.surface, borderRadius: T.radius.tile,
+      boxShadow: T.cardShadow, transition: 'opacity .2s', opacity: t.done ? 0.55 : 1,
+      cursor: 'pointer',
+    }}>
       <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
         <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat)} />
       </div>
@@ -49,11 +52,6 @@ function TaskItem({ t, onToggle, onClick }: {
               <Icon.clock size={13} color={T.color.textMuted} />{t.time}
             </span>
           )}
-          {t.date && !t.time && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: T.color.textMuted, fontSize: 12, fontWeight: 600 }}>
-              <Icon.calendar size={12} color={T.color.textMuted} />{t.date}
-            </span>
-          )}
           <Chip id={t.cat} />
         </div>
       </div>
@@ -67,15 +65,43 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
 }) {
-  const generalTodayTasks = tasks.filter(t =>
-    t.type !== 'scheduled' && (t.today || (t.date && isToday(t.date, t.recurrence)))
-  );
-  const scheduledTodayTasks = tasks.filter(t =>
-    t.type === 'scheduled' && t.date && isToday(t.date, t.recurrence)
-  );
-  const todayTasks = [...generalTodayTasks, ...scheduledTodayTasks]
-    .sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
-  const laterTasks = tasks.filter(t => !todayTasks.find(x => x.id === t.id));
+  const tStr = todayStr();
+
+  const { todayTasks, dateSections, laterTasks } = useMemo(() => {
+    const today: Task[] = [];
+    const byDate: Record<string, Task[]> = {};
+    const later: Task[] = [];
+
+    tasks.forEach(t => {
+      // Belongs to today
+      if (t.today || (t.date && isToday(t.date, t.recurrence))) {
+        today.push(t);
+        return;
+      }
+      // Has a future/past date (not today)
+      if (t.date) {
+        if (!byDate[t.date]) byDate[t.date] = [];
+        byDate[t.date].push(t);
+        return;
+      }
+      // No date, not today
+      later.push(t);
+    });
+
+    // Sort today by time
+    today.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+
+    // Sort date sections chronologically
+    const sortedDates = Object.keys(byDate).sort();
+    const sections = sortedDates.map(date => ({
+      date,
+      label: isToday(date) ? 'היום' : formatDate(date),
+      tasks: byDate[date].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '')),
+    }));
+
+    return { todayTasks: today, dateSections: sections, laterTasks: later };
+  }, [tasks, tStr]);
+
   const doneTodayCount = todayTasks.filter(t => t.done).length;
 
   return (
@@ -83,54 +109,47 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
       <PageHeader
         icon={<Icon.checkCircle size={26} color="#fff" sw={1.8} />}
         title="משימות"
-        sub={`${doneTodayCount} מתוך ${todayTasks.length} הושלמו היום`}
+        sub={todayTasks.length > 0 ? `${doneTodayCount} מתוך ${todayTasks.length} הושלמו היום` : undefined}
       />
 
       <div style={{ padding: '0 18px' }}>
-      {/* Progress summary */}
-      <div style={{
-        background: T.color.surface, borderRadius: T.radius.tile,
-        boxShadow: T.cardShadow, padding: '12px 16px', marginBottom: 20,
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, color: T.color.textMuted, marginBottom: 6 }}>
-            הושלמו היום: <b style={{ color: T.color.text }}>{doneTodayCount}</b> מתוך <b style={{ color: T.color.text }}>{todayTasks.length}</b>
-          </div>
-          <div style={{ height: 7, borderRadius: 99, background: T.color.surfaceAlt, overflow: 'hidden' }}>
-            <div style={{
-              width: `${todayTasks.length ? doneTodayCount / todayTasks.length * 100 : 0}%`,
-              height: '100%', background: T.color.primary, borderRadius: 99, transition: 'width .5s',
-            }} />
-          </div>
+
+        {/* Today */}
+        <SectionHead sub={`${doneTodayCount}/${todayTasks.length}`}>היום</SectionHead>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {todayTasks.map(t => (
+            <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+          ))}
+          {todayTasks.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '12px 0', color: T.color.textMuted, fontSize: 14 }}>
+              אין משימות להיום 🎉
+            </div>
+          )}
         </div>
-        <span style={{
-          fontSize: 12.5, fontWeight: 700, color: T.color.primaryDeep, direction: 'ltr',
-          background: T.color.primarySoft, borderRadius: 99, padding: '4px 10px',
-        }}>{doneTodayCount}/{todayTasks.length}</span>
-      </div>
 
-      <SectionHead sub={`${doneTodayCount}/${todayTasks.length}`}>היום</SectionHead>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {todayTasks.map(t => (
-          <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
-        ))}
-        {todayTasks.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '16px 0', color: T.color.textMuted, fontSize: 14 }}>
-            אין משימות להיום 🎉
+        {/* Date sections */}
+        {dateSections.map(({ date, label, tasks: dTasks }) => (
+          <div key={date}>
+            <div style={{ height: 18 }} />
+            <SectionHead>{label}</SectionHead>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {dTasks.map(t => (
+                <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+              ))}
+            </div>
           </div>
-        )}
-      </div>
-
-      <div style={{ height: 18 }} />
-
-      <SectionHead>בהמשך</SectionHead>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {laterTasks.map(t => (
-          <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
         ))}
-        <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddTask} />
-      </div>
+
+        {/* Later — no date */}
+        <div style={{ height: 18 }} />
+        <SectionHead>להמשך</SectionHead>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {laterTasks.map(t => (
+            <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+          ))}
+          <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddTask} />
+        </div>
+
       </div>
     </div>
   );
