@@ -46,11 +46,23 @@ export default function App() {
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const idc = useRef(300);
 
-  // Load from Firestore on mount
+  // Load from Firestore on mount — skip known sample-data IDs
   useEffect(() => {
     if (!db) return;
-    const load = <T,>(col: string, setter: (v: T[]) => void) =>
-      getDocs(collection(db!, col)).then(snap => setter(snap.docs.map(d => d.data() as T)));
+    const SAMPLE_IDS = new Set(['e1','e2','e3','e4','e5','t1','t2','t3','t4','t5','t6','t7','t8','s1','s2','s3','s4','s5','s6','s7','s8','s9','n1','n2','n3','n4','n5']);
+
+    async function load<T extends { id: string }>(col: string, setter: (v: T[]) => void) {
+      const snap = await getDocs(collection(db!, col));
+      const real: T[] = [];
+      await Promise.all(snap.docs.map(async d => {
+        if (SAMPLE_IDS.has(d.id)) {
+          await deleteDoc(doc(db!, col, d.id));
+        } else {
+          real.push(d.data() as T);
+        }
+      }));
+      setter(real);
+    }
 
     load<Task>('tasks', setTasks);
     load<ShoppingItem>('shopping', setShopping);
