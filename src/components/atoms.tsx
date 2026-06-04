@@ -110,9 +110,10 @@ export function SectionHead({ children, sub }: { children: React.ReactNode; sub?
   );
 }
 
-export function PageHeader({ icon, title, sub, action }: {
+export function PageHeader({ icon, title, titleSub, sub, action }: {
   icon: React.ReactNode;
   title: string;
+  titleSub?: string;
   sub?: string;
   action?: React.ReactNode;
 }) {
@@ -139,6 +140,9 @@ export function PageHeader({ icon, title, sub, action }: {
             margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
             fontSize: Math.round(32 * T.headingScale), color: T.color.text, lineHeight: 1.1,
           }}>{title}</h1>
+          {titleSub && (
+            <div style={{ fontSize: 12, color: T.color.textMuted, marginTop: 1 }}>{titleSub}</div>
+          )}
           {sub && (
             <div style={{ fontSize: 12.5, color: T.color.textMuted, marginTop: 2 }}>{sub}</div>
           )}

@@ -2,7 +2,12 @@ import { useState, useMemo } from 'react';
 import { theme, catColor } from '../theme';
 import { weekdaysShort } from '../lib/data';
 import type { CalEvent, Task } from '../lib/types';
-import { formatDayMonth, formatMonthYear, type DateFormat } from '../lib/dateFormat';
+import {
+  formatDayMonth, formatMonthYear,
+  getGregorianDayMonth, getHebrewDayMonth,
+  getGregorianMonthYear, getHebrewMonthYear,
+  type DateFormat,
+} from '../lib/dateFormat';
 import { isItemOnDate } from '../lib/recurrence';
 import { CatDot, SectionHead, NavBtn, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
@@ -100,6 +105,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
       <PageHeader
         icon={<Icon.calendar size={24} color="#fff" sw={1.8} />}
         title={formatMonthYear(new Date(year, month, 1), dateFormat)}
+        titleSub={dateFormat === 'both' ? getHebrewMonthYear(new Date(year, month, 1)) : undefined}
         sub={selEvents.length > 0 ? `${selEvents.length} אירועים ב-${sel} בחודש` : undefined}
         action={
           <div style={{ display: 'flex', gap: 8 }}>
@@ -156,7 +162,14 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
       {/* Selected day */}
       <div style={{ marginTop: 22 }}>
         <SectionHead sub={selItems.length ? `${selItems.length} פריטים` : ''}>
-          {formatDayMonth(selDate, dateFormat)}
+          {dateFormat === 'both' ? (
+            <>
+              {getGregorianDayMonth(selDate)}
+              <span style={{ display: 'block', fontSize: '0.68em', color: T.color.textMuted, fontWeight: 400, marginTop: 1 }}>
+                {getHebrewDayMonth(selDate)}
+              </span>
+            </>
+          ) : formatDayMonth(selDate, dateFormat)}
         </SectionHead>
 
         {selItems.length ? (

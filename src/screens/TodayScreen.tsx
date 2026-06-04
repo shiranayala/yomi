@@ -5,7 +5,7 @@ import { isToday } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
 import { Icon } from '../icons';
 import { weather } from '../lib/data';
-import { formatDayMonth, type DateFormat } from '../lib/dateFormat';
+import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -173,7 +173,11 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
   const [menuOpen, setMenuOpen]       = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const now = new Date();
-  const dateLabel = `יום ${DAY_NAMES[now.getDay()]} · ${formatDayMonth(now, dateFormat)}`;
+  const dayName = `יום ${DAY_NAMES[now.getDay()]}`;
+  const primaryDate = dateFormat === 'hebrew'
+    ? getHebrewDayMonth(now)
+    : getGregorianDayMonth(now);
+  const secondaryDate = dateFormat === 'both' ? getHebrewDayMonth(now) : null;
 
   const scheduledToday = tasks.filter(t =>
     t.time && (t.today || (t.date && isToday(t.date, t.recurrence)))
@@ -202,7 +206,16 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
       }}>
         {/* Top row: date label + profile icon */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{dateLabel}</div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>
+              {dayName} · {primaryDate}
+            </div>
+            {secondaryDate && (
+              <div style={{ fontSize: 11.5, fontWeight: 500, opacity: 0.65, marginTop: 2 }}>
+                {secondaryDate}
+              </div>
+            )}
+          </div>
 
           {/* Profile button (small) */}
           <div style={{ position: 'relative' }}>
