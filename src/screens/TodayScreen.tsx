@@ -170,7 +170,8 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
   onOpenSettings: () => void;
   onSignOut: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen]       = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const now = new Date();
   const dateLabel = `יום ${DAY_NAMES[now.getDay()]} · ${formatDayMonth(now, dateFormat)}`;
 
@@ -193,108 +194,116 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
 
   return (
     <div>
-      {/* Hero gradient — exactly as original design */}
+      {/* Hero */}
       <div style={{
-        padding: '32px 18px 60px',
+        padding: '28px 18px 52px',
         background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
         color: T.color.onPrimary,
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{dateLabel}</div>
-            <div style={{ fontFamily: T.fonts.hand, fontSize: 40, lineHeight: 1.05, marginTop: 6 }}>
-              {getGreeting()}{userName ? `, ${userName}` : ''}
-            </div>
-            <div style={{ fontSize: 14, opacity: 0.9, marginTop: 4 }}>מה על הפרק היום?</div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+        {/* Top row: date label + profile icon */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>{dateLabel}</div>
 
-            {/* Profile avatar at top */}
-            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-              <button onClick={() => setMenuOpen(o => !o)} style={{
-                width: 50, height: 50, borderRadius: 99, flexShrink: 0,
-                background: 'rgba(255,255,255,0.18)',
-                border: '2px solid rgba(255,255,255,0.4)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', fontSize: 22, fontWeight: 700,
-                color: '#fff', fontFamily: T.fonts.body,
-                WebkitTapHighlightColor: 'transparent',
-              }}>
-                {userName ? userName[0] : '?'}
-              </button>
-
-              {menuOpen && (
-                <>
-                  <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
-                  <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', insetInlineEnd: 0, zIndex: 11,
-                    background: '#fff', borderRadius: 16, padding: '16px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                    minWidth: 200, direction: 'rtl', color: T.color.text,
-                  }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{userName || 'משתמשת'}</div>
-                    <div style={{ fontSize: 12.5, color: T.color.textMuted, marginBottom: 14, marginTop: 2 }}>
-                      {userEmail}
-                    </div>
-                    <div style={{ height: 1, background: T.color.line, marginBottom: 10 }} />
-                    <button
-                      onClick={() => { setMenuOpen(false); onOpenSettings(); }}
-                      style={{
-                        width: '100%', border: 'none', background: 'none',
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        cursor: 'pointer', padding: '7px 0',
-                        color: T.color.text, fontSize: 14, fontWeight: 600,
-                        fontFamily: T.fonts.body,
-                      }}
-                    >
-                      <Icon.settings size={15} color={T.color.text} />
-                      הגדרות
-                    </button>
-                    <button
-                      onClick={() => { setMenuOpen(false); onSignOut(); }}
-                      style={{
-                        width: '100%', border: 'none', background: 'none',
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        cursor: 'pointer', padding: '7px 0',
-                        color: '#e05c5c', fontSize: 14, fontWeight: 600,
-                        fontFamily: T.fonts.body,
-                      }}
-                    >
-                      <Icon.logout size={15} color="#e05c5c" />
-                      התנתקות
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <button onClick={onOpenAddTask} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          {/* Profile button (small) */}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setMenuOpen(o => !o)} style={{
+              width: 34, height: 34, borderRadius: 99,
               background: 'rgba(255,255,255,0.18)',
-              border: '1.5px solid rgba(255,255,255,0.4)',
-              borderRadius: 99, padding: '6px 12px',
-              color: T.color.onPrimary, fontSize: 12.5, fontWeight: 600,
-              cursor: 'pointer', fontFamily: T.fonts.body,
-              WebkitTapHighlightColor: 'transparent',
+              border: '1.5px solid rgba(255,255,255,0.35)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
             }}>
-              <Icon.plus size={12} color={T.color.onPrimary} sw={2.5} />
-              משימה
+              <Icon.user size={17} color="#fff" sw={1.8} />
             </button>
-            <button onClick={onOpenAddEvent} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              background: 'rgba(255,255,255,0.12)',
-              border: '1.5px solid rgba(255,255,255,0.3)',
-              borderRadius: 99, padding: '6px 12px',
-              color: T.color.onPrimary, fontSize: 12.5, fontWeight: 600,
-              cursor: 'pointer', fontFamily: T.fonts.body,
-              WebkitTapHighlightColor: 'transparent',
-            }}>
-              <Icon.calendar size={12} color={T.color.onPrimary} sw={2} />
-              אירוע
-            </button>
+
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', insetInlineEnd: 0, zIndex: 11,
+                  background: '#fff', borderRadius: 16, padding: '16px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                  minWidth: 200, direction: 'rtl', color: T.color.text,
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{userName || 'משתמשת'}</div>
+                  <div style={{ fontSize: 12.5, color: T.color.textMuted, marginBottom: 14, marginTop: 2 }}>{userEmail}</div>
+                  <div style={{ height: 1, background: T.color.line, marginBottom: 10 }} />
+                  <button onClick={() => { setMenuOpen(false); onOpenSettings(); }} style={{
+                    width: '100%', border: 'none', background: 'none',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    cursor: 'pointer', padding: '7px 0',
+                    color: T.color.text, fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
+                  }}>
+                    <Icon.settings size={15} color={T.color.text} />הגדרות
+                  </button>
+                  <button onClick={() => { setMenuOpen(false); onSignOut(); }} style={{
+                    width: '100%', border: 'none', background: 'none',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    cursor: 'pointer', padding: '7px 0',
+                    color: '#e05c5c', fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
+                  }}>
+                    <Icon.logout size={15} color="#e05c5c" />התנתקות
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-        <div style={{ marginTop: 18 }}>
+
+        {/* Greeting row + add button */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ fontFamily: T.fonts.hand, fontSize: 33, lineHeight: 1.1 }}>
+            {getGreeting()}{userName ? `, ${userName}` : ''}
+          </div>
+
+          {/* + button */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button onClick={() => setAddMenuOpen(o => !o)} style={{
+              width: 40, height: 40, borderRadius: 99,
+              background: 'rgba(255,255,255,0.22)',
+              border: '1.5px solid rgba(255,255,255,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+              transition: 'background .15s',
+            }}>
+              <Icon.plus size={20} color="#fff" sw={2.5} />
+            </button>
+
+            {addMenuOpen && (
+              <>
+                <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', insetInlineEnd: 0, zIndex: 11,
+                  background: '#fff', borderRadius: 14, padding: '6px',
+                  boxShadow: '0 8px 28px rgba(0,0,0,0.18)',
+                  minWidth: 160, direction: 'rtl',
+                }}>
+                  <button onClick={() => { setAddMenuOpen(false); onOpenAddTask(); }} style={{
+                    width: '100%', border: 'none', background: 'none', borderRadius: 10,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '11px 14px', cursor: 'pointer',
+                    color: T.color.text, fontSize: 14.5, fontWeight: 600, fontFamily: T.fonts.body,
+                  }}>
+                    <Icon.checkCircle size={18} color={T.color.primary} sw={1.8} />
+                    משימה
+                  </button>
+                  <button onClick={() => { setAddMenuOpen(false); onOpenAddEvent(); }} style={{
+                    width: '100%', border: 'none', background: 'none', borderRadius: 10,
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '11px 14px', cursor: 'pointer',
+                    color: T.color.text, fontSize: 14.5, fontWeight: 600, fontFamily: T.fonts.body,
+                  }}>
+                    <Icon.calendar size={18} color={T.color.primary} sw={1.8} />
+                    אירוע
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Weather */}
+        <div style={{ marginTop: 16 }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
             background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '7px 13px',
