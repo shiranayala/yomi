@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { theme } from '../theme';
 import {
   auth,
-  GoogleAuthProvider, signInWithRedirect,
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   sendPasswordResetEmail, sendEmailVerification, updateProfile,
 } from '../lib/firebase';
@@ -73,15 +73,25 @@ export function AuthScreen() {
     if (!auth) return;
     reset();
     setLoading(true);
+    const provider = new GoogleAuthProvider();
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-      // page redirects — code below won't run
+      await signInWithPopup(auth, provider);
+      // onAuthStateChanged handles the rest
     } catch (e: unknown) {
-      setLoading(false);
       const code = (e as { code?: string }).code ?? '';
-      const msg = hebrewError(code);
-      if (msg) setError(msg);
+      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+        // popup blocked — fall back to full-page redirect
+        try {
+          await signInWithRedirect(auth, provider);
+        } catch {
+          setLoading(false);
+          setError('שגיאה בהתחברות, נסי שוב');
+        }
+      } else {
+        setLoading(false);
+        const msg = hebrewError(code);
+        if (msg) setError(msg);
+      }
     }
   }
 

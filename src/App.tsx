@@ -45,8 +45,10 @@ export default function App() {
 
   useEffect(() => {
     if (!auth) return;
-    // Handle Google redirect result on page load
-    getRedirectResult(auth).catch(() => {/* ignore */});
+    // Complete any pending Google redirect sign-in
+    getRedirectResult(auth)
+      .then(result => { if (result?.user) setAuthUser(result.user); })
+      .catch(e => console.error('redirect result:', e));
     return onAuthStateChanged(auth, u => setAuthUser(u));
   }, []);
 
