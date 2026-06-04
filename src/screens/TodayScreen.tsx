@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { theme, catColor, softLine } from '../theme';
 import type { Task, CalEvent } from '../lib/types';
 import { isToday } from '../lib/recurrence';
-import { Check, Chip, AddRow, SectionHead, ProgressRing } from '../components/atoms';
+import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
 import { Icon } from '../icons';
-import { monthNames, weather } from '../lib/data';
+import { weather } from '../lib/data';
+import { formatDayMonth, type DateFormat } from '../lib/dateFormat';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -154,22 +155,24 @@ function TaskItem({ t, onToggle, onClick }: {
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, userName, userEmail, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenAddTask, onOpenAddEvent, onSignOut }: {
+export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenAddTask, onOpenAddEvent, onOpenSettings, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
   userName: string;
   userEmail: string;
+  dateFormat: DateFormat;
   onToggleTask: (id: string) => void;
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (ev: CalEvent) => void;
   onOpenAddTask: () => void;
   onOpenAddEvent: () => void;
+  onOpenSettings: () => void;
   onSignOut: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const now = new Date();
-  const dateLabel = `יום ${DAY_NAMES[now.getDay()]} · ${now.getDate()} ב${monthNames[now.getMonth()]}`;
+  const dateLabel = `יום ${DAY_NAMES[now.getDay()]} · ${formatDayMonth(now, dateFormat)}`;
 
   const scheduledToday = tasks.filter(t =>
     t.time && (t.today || (t.date && isToday(t.date, t.recurrence)))
@@ -177,9 +180,6 @@ export function TodayScreen({ tasks, events, userName, userEmail, onToggleTask, 
   const generalToday = tasks.filter(t =>
     !t.time && (t.today || (t.date && isToday(t.date, t.recurrence)))
   );
-
-  const todayAllCount = scheduledToday.length + generalToday.length;
-  const todayDoneCount = [...scheduledToday, ...generalToday].filter(t => t.done).length;
 
   const todayEvents = events.filter(ev => isToday(ev.date, ev.recurrence));
   const timeline: TimelineEntry[] = [
@@ -208,9 +208,66 @@ export function TodayScreen({ tasks, events, userName, userEmail, onToggleTask, 
             <div style={{ fontSize: 14, opacity: 0.9, marginTop: 4 }}>מה על הפרק היום?</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <ProgressRing done={todayDoneCount} total={todayAllCount} size={50} onDark />
+
+            {/* Profile avatar at top */}
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+              <button onClick={() => setMenuOpen(o => !o)} style={{
+                width: 50, height: 50, borderRadius: 99, flexShrink: 0,
+                background: 'rgba(255,255,255,0.18)',
+                border: '2px solid rgba(255,255,255,0.4)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontSize: 22, fontWeight: 700,
+                color: '#fff', fontFamily: T.fonts.body,
+                WebkitTapHighlightColor: 'transparent',
+              }}>
+                {userName ? userName[0] : '?'}
+              </button>
+
+              {menuOpen && (
+                <>
+                  <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', insetInlineEnd: 0, zIndex: 11,
+                    background: '#fff', borderRadius: 16, padding: '16px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                    minWidth: 200, direction: 'rtl', color: T.color.text,
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{userName || 'משתמשת'}</div>
+                    <div style={{ fontSize: 12.5, color: T.color.textMuted, marginBottom: 14, marginTop: 2 }}>
+                      {userEmail}
+                    </div>
+                    <div style={{ height: 1, background: T.color.line, marginBottom: 10 }} />
+                    <button
+                      onClick={() => { setMenuOpen(false); onOpenSettings(); }}
+                      style={{
+                        width: '100%', border: 'none', background: 'none',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        cursor: 'pointer', padding: '7px 0',
+                        color: T.color.text, fontSize: 14, fontWeight: 600,
+                        fontFamily: T.fonts.body,
+                      }}
+                    >
+                      <Icon.settings size={15} color={T.color.text} />
+                      הגדרות
+                    </button>
+                    <button
+                      onClick={() => { setMenuOpen(false); onSignOut(); }}
+                      style={{
+                        width: '100%', border: 'none', background: 'none',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        cursor: 'pointer', padding: '7px 0',
+                        color: '#e05c5c', fontSize: 14, fontWeight: 600,
+                        fontFamily: T.fonts.body,
+                      }}
+                    >
+                      <Icon.logout size={15} color="#e05c5c" />
+                      התנתקות
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
+
             <button onClick={onOpenAddTask} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               background: 'rgba(255,255,255,0.18)',
@@ -235,64 +292,6 @@ export function TodayScreen({ tasks, events, userName, userEmail, onToggleTask, 
               <Icon.calendar size={12} color={T.color.onPrimary} sw={2} />
               אירוע
             </button>
-
-            {/* Profile button + dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button onClick={() => setMenuOpen(o => !o)} style={{
-                width: '100%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 99, padding: '5px 10px',
-                color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 600,
-                cursor: 'pointer', fontFamily: T.fonts.body,
-                WebkitTapHighlightColor: 'transparent',
-              }}>
-                <span style={{
-                  width: 20, height: 20, borderRadius: 99,
-                  background: 'rgba(255,255,255,0.25)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {userName ? userName[0] : '?'}
-                </span>
-                פרופיל
-              </button>
-
-              {menuOpen && (
-                <>
-                  <div
-                    onClick={() => setMenuOpen(false)}
-                    style={{ position: 'fixed', inset: 0, zIndex: 10 }}
-                  />
-                  <div style={{
-                    position: 'absolute', top: 'calc(100% + 6px)', insetInlineEnd: 0, zIndex: 11,
-                    background: '#fff', borderRadius: 16, padding: '16px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                    minWidth: 200, direction: 'rtl', color: T.color.text,
-                  }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{userName || 'משתמשת'}</div>
-                    <div style={{ fontSize: 12.5, color: T.color.textMuted, marginBottom: 14, marginTop: 2 }}>
-                      {userEmail}
-                    </div>
-                    <div style={{ height: 1, background: T.color.line, marginBottom: 12 }} />
-                    <button
-                      onClick={() => { setMenuOpen(false); onSignOut(); }}
-                      style={{
-                        width: '100%', border: 'none', background: 'none',
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        cursor: 'pointer', padding: '4px 0',
-                        color: '#e05c5c', fontSize: 14, fontWeight: 600,
-                        fontFamily: T.fonts.body,
-                      }}
-                    >
-                      <Icon.logout size={15} color="#e05c5c" />
-                      התנתקות
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
           </div>
         </div>
         <div style={{ marginTop: 18 }}>

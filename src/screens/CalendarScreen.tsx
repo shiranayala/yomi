@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { theme, catColor } from '../theme';
-import { weekdaysShort, monthNames } from '../lib/data';
+import { weekdaysShort } from '../lib/data';
 import type { CalEvent, Task } from '../lib/types';
+import { formatDayMonth, formatMonthYear, type DateFormat } from '../lib/dateFormat';
 import { isItemOnDate } from '../lib/recurrence';
 import { CatDot, SectionHead, NavBtn, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
@@ -22,9 +23,10 @@ function RecurIcon() {
   );
 }
 
-export function CalendarScreen({ events, tasks, onEditEvent, onEditTask }: {
+export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditTask }: {
   events: CalEvent[];
   tasks: Task[];
+  dateFormat: DateFormat;
   onEditEvent: (ev: CalEvent) => void;
   onEditTask: (t: Task) => void;
 }) {
@@ -97,7 +99,7 @@ export function CalendarScreen({ events, tasks, onEditEvent, onEditTask }: {
     <div style={{ paddingBottom: 100 }}>
       <PageHeader
         icon={<Icon.calendar size={24} color="#fff" sw={1.8} />}
-        title={`${monthNames[month]} ${year}`}
+        title={formatMonthYear(new Date(year, month, 1), dateFormat)}
         sub={selEvents.length > 0 ? `${selEvents.length} אירועים ב-${sel} בחודש` : undefined}
         action={
           <div style={{ display: 'flex', gap: 8 }}>
@@ -154,7 +156,7 @@ export function CalendarScreen({ events, tasks, onEditEvent, onEditTask }: {
       {/* Selected day */}
       <div style={{ marginTop: 22 }}>
         <SectionHead sub={selItems.length ? `${selItems.length} פריטים` : ''}>
-          {sel} ב{monthNames[month]}
+          {formatDayMonth(selDate, dateFormat)}
         </SectionHead>
 
         {selItems.length ? (

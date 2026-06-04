@@ -12,12 +12,14 @@ import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
+import { SettingsScreen } from './screens/SettingsScreen';
 import {
   db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
   onAuthStateChanged, authSignOut,
   type User,
 } from './lib/firebase';
 import type { Task, ShoppingItem, Note, CalEvent, Tag } from './lib/types';
+import type { DateFormat } from './lib/dateFormat';
 
 const T = theme;
 
@@ -36,6 +38,10 @@ export default function App() {
   // ── Auth ──────────────────────────────────────────────────────────
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
   const [reloadCount, setReloadCount] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [dateFormat, setDateFormat] = useState<DateFormat>(
+    () => (localStorage.getItem('dateFormat') as DateFormat) ?? 'gregorian'
+  );
 
   useEffect(() => {
     if (!auth) return;
@@ -202,8 +208,13 @@ export default function App() {
   function isGoogleUser(u: User) {
     return u.providerData.some(p => p.providerId === 'google.com');
   }
-  const handleVerified = () => {
-    setReloadCount(c => c + 1);
+  const handleVerified = () => setReloadCount(c => c + 1);
+  const handleUserUpdated = () => setReloadCount(c => c + 1);
+
+  // ── Date format ───────────────────────────────────────────────────
+  const handleDateFormatChange = (f: DateFormat) => {
+    setDateFormat(f);
+    localStorage.setItem('dateFormat', f);
   };
 
   // ── Back button (Android / PWA) ───────────────────────────────────
@@ -266,8 +277,9 @@ export default function App() {
   }
 
   // ── Authenticated ─────────────────────────────────────────────────
-  const firstName = (authUser.displayName ?? '').split(' ')[0];
-  const userEmail = authUser.email ?? '';
+  const displayName = auth?.currentUser?.displayName ?? authUser.displayName ?? '';
+  const firstName = displayName.split(' ')[0];
+  const userEmail = auth?.currentUser?.email ?? authUser.email ?? '';
 
   return (
     <div dir="rtl" style={{
@@ -282,12 +294,14 @@ export default function App() {
             tasks={tasks} events={events}
             userName={firstName}
             userEmail={userEmail}
+            dateFormat={dateFormat}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
             onOpenAddTask={() => setForm({ kind: 'addTask' })}
             onOpenAddEvent={() => setForm({ kind: 'addEvent' })}
+            onOpenSettings={() => setShowSettings(true)}
             onSignOut={handleSignOut}
           />
         )}
@@ -314,6 +328,7 @@ export default function App() {
           <CalendarScreen
             events={events}
             tasks={tasks}
+            dateFormat={dateFormat}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
           />
@@ -321,6 +336,17 @@ export default function App() {
       </div>
 
       <TabBar tab={tab} setTab={setTab} />
+
+      {/* Settings overlay */}
+      {showSettings && (
+        <SettingsScreen
+          user={authUser}
+          dateFormat={dateFormat}
+          onDateFormatChange={handleDateFormatChange}
+          onClose={() => setShowSettings(false)}
+          onUserUpdated={handleUserUpdated}
+        />
+      )}
 
       {/* Note editor overlay */}
       {editingNote && (

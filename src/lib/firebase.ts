@@ -35,6 +35,7 @@ export {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification,
+  verifyBeforeUpdateEmail,
   updateProfile,
   signOut as authSignOut,
   onAuthStateChanged,
