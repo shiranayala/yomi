@@ -15,7 +15,7 @@ import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import {
   db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
-  onAuthStateChanged, authSignOut,
+  onAuthStateChanged, authSignOut, getRedirectResult,
   type User,
 } from './lib/firebase';
 import type { Task, ShoppingItem, Note, CalEvent, Tag } from './lib/types';
@@ -45,6 +45,8 @@ export default function App() {
 
   useEffect(() => {
     if (!auth) return;
+    // Handle Google redirect result on page load
+    getRedirectResult(auth).catch(() => {/* ignore */});
     return onAuthStateChanged(auth, u => setAuthUser(u));
   }, []);
 

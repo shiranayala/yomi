@@ -78,10 +78,20 @@ export function VerifyEmailScreen({ user, onVerified }: {
         <div style={{ fontSize: 20, fontWeight: 700, color: T.color.text, marginBottom: 10 }}>
           אמתי את כתובת המייל שלך
         </div>
-        <div style={{ fontSize: 14.5, color: T.color.textMuted, lineHeight: 1.65, marginBottom: 32 }}>
+        <div style={{ fontSize: 14.5, color: T.color.textMuted, lineHeight: 1.65, marginBottom: 20 }}>
           שלחנו מייל אימות לכתובת<br />
           <strong style={{ color: T.color.text }}>{user.email}</strong><br />
           לחצי על הקישור במייל כדי להמשיך
+        </div>
+
+        <div style={{
+          width: '100%', background: '#fffbeb', borderRadius: 14,
+          border: '1px solid #f5d97a', padding: '12px 16px',
+          marginBottom: 28, textAlign: 'start',
+        }}>
+          <div style={{ fontSize: 13.5, color: '#7a5c00', lineHeight: 1.6 }}>
+            💡 לא קיבלת את המייל? בדקי בתיקיית <strong>ספאם</strong> או <strong>קידום מכירות</strong>
+          </div>
         </div>
 
         <button

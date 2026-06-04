@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { theme } from '../theme';
 import {
   auth,
-  GoogleAuthProvider, signInWithPopup,
+  GoogleAuthProvider, signInWithRedirect,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   sendPasswordResetEmail, sendEmailVerification, updateProfile,
 } from '../lib/firebase';
@@ -75,13 +75,13 @@ export function AuthScreen() {
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
+      // page redirects — code below won't run
     } catch (e: unknown) {
+      setLoading(false);
       const code = (e as { code?: string }).code ?? '';
       const msg = hebrewError(code);
       if (msg) setError(msg);
-    } finally {
-      setLoading(false);
     }
   }
 
