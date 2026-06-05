@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { theme, catColor, softLine } from '../theme';
-import type { Task, CalEvent } from '../lib/types';
+import type { Task, CalEvent, Habit, HabitLog } from '../lib/types';
 import { isToday } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
+import { HabitsSection } from '../components/HabitsSection';
 import { Icon } from '../icons';
 import { weather } from '../lib/data';
 import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
@@ -155,9 +156,11 @@ function TaskItem({ t, onToggle, onClick }: {
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onSignOut }: {
+export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onToggleHabit, onAddHabit, onEditHabit, onDeleteHabit, onOpenSettings, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
+  habits: Habit[];
+  habitLogs: HabitLog[];
   userName: string;
   userEmail: string;
   dateFormat: DateFormat;
@@ -165,6 +168,10 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (ev: CalEvent) => void;
+  onToggleHabit: (habitId: string) => void;
+  onAddHabit: (title: string) => void;
+  onEditHabit: (id: string, title: string) => void;
+  onDeleteHabit: (id: string) => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
 }) {
@@ -326,6 +333,17 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
             ))}
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
           </div>
+
+          <div style={{ height: 10 }} />
+
+          <HabitsSection
+            habits={habits}
+            logs={habitLogs}
+            onToggle={onToggleHabit}
+            onAdd={onAddHabit}
+            onEdit={onEditHabit}
+            onDelete={onDeleteHabit}
+          />
 
         </div>
       </div>

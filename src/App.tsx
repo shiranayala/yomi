@@ -18,7 +18,7 @@ import {
   onAuthStateChanged, authSignOut, getRedirectResult,
   type User,
 } from './lib/firebase';
-import type { Task, ShoppingItem, Note, CalEvent, Tag } from './lib/types';
+import type { Task, ShoppingItem, Note, CalEvent, Tag, Habit, HabitLog } from './lib/types';
 import type { DateFormat } from './lib/dateFormat';
 
 const T = theme;
@@ -59,6 +59,8 @@ export default function App() {
   const [notes, setNotes]       = useState<Note[]>([]);
   const [events, setEvents]     = useState<CalEvent[]>([]);
   const [tags, setTags]         = useState<Tag[]>([]);
+  const [habits, setHabits]     = useState<Habit[]>([]);
+  const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const [fabOpen, setFabOpen]   = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -95,6 +97,8 @@ export default function App() {
     load<Note>('notes', setNotes);
     load<CalEvent>('events', setEvents);
     load<Tag>('tags', setTags);
+    load<Habit>('habits', setHabits);
+    load<HabitLog>('habitLogs', setHabitLogs);
   }, [uid]);
 
   // ── Task operations ───────────────────────────────────────────────
@@ -204,6 +208,44 @@ export default function App() {
     }));
   };
 
+  // ── Habit operations ─────────────────────────────────────────────
+  const toggleHabit = (habitId: string) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const logId = `${habitId}_${today}`;
+    const existing = habitLogs.find(l => l.id === logId);
+    if (existing) {
+      setHabitLogs(ls => ls.filter(l => l.id !== logId));
+      fsDel('habitLogs', logId);
+    } else {
+      const log: HabitLog = { id: logId, habitId, date: today };
+      setHabitLogs(ls => [...ls, log]);
+      fsSet('habitLogs', logId, log);
+    }
+  };
+
+  const addHabit = (title: string) => {
+    const habit: Habit = {
+      id: 'hb' + (++idc.current),
+      title,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    setHabits(hs => [...hs, habit]);
+    fsSet('habits', habit.id, habit);
+  };
+
+  const editHabit = (id: string, title: string) => {
+    setHabits(hs => hs.map(h => h.id === id ? { ...h, title } : h));
+    fsUpdate('habits', id, { title });
+  };
+
+  const deleteHabit = (id: string) => {
+    setHabits(hs => hs.filter(h => h.id !== id));
+    fsDel('habits', id);
+    const toDelete = habitLogs.filter(l => l.habitId === id);
+    setHabitLogs(ls => ls.filter(l => l.habitId !== id));
+    toDelete.forEach(l => fsDel('habitLogs', l.id));
+  };
+
   // ── Sign out ──────────────────────────────────────────────────────
   const handleSignOut = async () => {
     if (auth) await authSignOut(auth);
@@ -299,6 +341,7 @@ export default function App() {
         {tab === 'today' && (
           <TodayScreen
             tasks={tasks} events={events}
+            habits={habits} habitLogs={habitLogs}
             userName={firstName}
             userEmail={userEmail}
             dateFormat={dateFormat}
@@ -306,6 +349,10 @@ export default function App() {
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
+            onToggleHabit={toggleHabit}
+            onAddHabit={addHabit}
+            onEditHabit={editHabit}
+            onDeleteHabit={deleteHabit}
             onOpenSettings={() => setShowSettings(true)}
             onSignOut={handleSignOut}
           />

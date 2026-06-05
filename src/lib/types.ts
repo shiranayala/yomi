@@ -64,3 +64,15 @@ export interface AgendaItem {
   title: string;
   cat: CatId;
 }
+
+export interface Habit {
+  id: string;
+  title: string;
+  createdAt: string; // YYYY-MM-DD
+}
+
+export interface HabitLog {
+  id: string;       // `${habitId}_${date}`
+  habitId: string;
+  date: string;     // YYYY-MM-DD
+}
