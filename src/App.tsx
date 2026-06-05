@@ -60,6 +60,7 @@ export default function App() {
   const [events, setEvents]     = useState<CalEvent[]>([]);
   const [tags, setTags]         = useState<Tag[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
+  const [fabOpen, setFabOpen]   = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const idc = useRef(300);
 
@@ -221,6 +222,8 @@ export default function App() {
     localStorage.setItem('dateFormat', f);
   };
 
+  useEffect(() => { setFabOpen(false); }, [tab]);
+
   // ── Back button (Android / PWA) ───────────────────────────────────
   useEffect(() => {
     history.pushState(null, '', location.href);
@@ -303,8 +306,6 @@ export default function App() {
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
-            onOpenAddTask={() => setForm({ kind: 'addTask' })}
-            onOpenAddEvent={() => setForm({ kind: 'addEvent' })}
             onOpenSettings={() => setShowSettings(true)}
             onSignOut={handleSignOut}
           />
@@ -340,6 +341,57 @@ export default function App() {
       </div>
 
       <TabBar tab={tab} setTab={setTab} />
+
+      {/* FAB */}
+      {(tab === 'today' || tab === 'tasks') && (
+        <>
+          {fabOpen && (
+            <div onClick={() => setFabOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 38 }} />
+          )}
+          {fabOpen && (
+            <div style={{
+              position: 'absolute', bottom: 150, insetInlineEnd: 18, zIndex: 39,
+              background: '#fff', borderRadius: 18, padding: '8px 0',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.18)', minWidth: 160,
+              display: 'flex', flexDirection: 'column',
+            }}>
+              <button onClick={() => { setFabOpen(false); setForm({ kind: 'addTask' }); }} style={{
+                border: 'none', background: 'none', cursor: 'pointer',
+                padding: '12px 20px', fontSize: 15, fontWeight: 600,
+                fontFamily: T.fonts.body, color: T.color.text, textAlign: 'right',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <span style={{ fontSize: 18 }}>✓</span> משימה חדשה
+              </button>
+              <div style={{ height: 1, background: T.color.line, margin: '0 12px' }} />
+              <button onClick={() => { setFabOpen(false); setForm({ kind: 'addEvent' }); }} style={{
+                border: 'none', background: 'none', cursor: 'pointer',
+                padding: '12px 20px', fontSize: 15, fontWeight: 600,
+                fontFamily: T.fonts.body, color: T.color.text, textAlign: 'right',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <span style={{ fontSize: 18 }}>📅</span> אירוע חדש
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setFabOpen(o => !o)}
+            style={{
+              position: 'absolute', bottom: 82, insetInlineEnd: 18, zIndex: 40,
+              width: 56, height: 56, borderRadius: 99,
+              background: T.color.primary, border: 'none', cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(156,107,168,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, color: '#fff', fontWeight: 300,
+              transform: fabOpen ? 'rotate(45deg)' : 'none',
+              transition: 'transform .2s',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            +
+          </button>
+        </>
+      )}
 
       {/* Settings overlay */}
       {showSettings && (
