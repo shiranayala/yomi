@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { theme, catColor } from '../theme';
+import { useCats } from '../lib/CategoriesContext';
 import type { Task } from '../lib/types';
 import { isToday, todayStr } from '../lib/recurrence';
 import { monthNames } from '../lib/data';
@@ -26,6 +27,7 @@ function RecurIcon() {
 function TaskItem({ t, onToggle, onClick }: {
   t: Task; onToggle: (id: string) => void; onClick: () => void;
 }) {
+  const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
@@ -35,7 +37,7 @@ function TaskItem({ t, onToggle, onClick }: {
       cursor: 'pointer',
     }}>
       <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat)} />
+        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -59,10 +61,11 @@ function TaskItem({ t, onToggle, onClick }: {
   );
 }
 
-export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
+export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, onEditTask }: {
   tasks: Task[];
   onToggleTask: (id: string) => void;
   onAddTask: (title: string) => void;
+  onAddLaterTask: (title: string) => void;
   onEditTask: (t: Task) => void;
 }) {
   const tStr = todayStr();
@@ -129,7 +132,7 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onEditTask }: {
           {laterTasks.map(t => (
             <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
           ))}
-          <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddTask} />
+          <AddRow placeholder="הוסף משימה חדשה…" onAdd={onAddLaterTask} />
         </div>
 
         {/* Future date sections */}

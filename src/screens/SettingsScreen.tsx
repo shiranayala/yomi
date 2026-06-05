@@ -5,9 +5,16 @@ import {
   verifyBeforeUpdateEmail, sendPasswordResetEmail,
 } from '../lib/firebase';
 import type { User } from '../lib/firebase';
+import type { Category } from '../lib/types';
 import type { DateFormat } from '../lib/dateFormat';
 import { Icon } from '../icons';
 import { NavBtn } from '../components/atoms';
+
+const CAT_PALETTE = [
+  '#5b8fc4', '#6aa890', '#d98a6a', '#b585c0', '#d4a23f',
+  '#e88080', '#6bbad4', '#7ec880', '#c86090', '#a09820',
+  '#d080a0', '#80c0c8', '#c08040', '#8060c8', '#909090',
+];
 
 const T = theme;
 
@@ -43,10 +50,105 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function SettingsScreen({ user, dateFormat, onDateFormatChange, onClose, onUserUpdated }: {
+function CatRow({ cat, onSave, onDelete }: {
+  cat: Category;
+  onSave: (c: Category) => void;
+  onDelete?: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(cat.label);
+  const [color, setColor] = useState(cat.color);
+  const [confirmDel, setConfirmDel] = useState(false);
+
+  const save = () => {
+    onSave({ ...cat, label: label.trim() || cat.label, color });
+    setEditing(false);
+    setConfirmDel(false);
+  };
+
+  if (editing) {
+    return (
+      <div style={{ padding: '12px 18px', borderBottom: '1px solid ' + softLine('0.07') }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <span style={{ width: 18, height: 18, borderRadius: 99, background: color, flexShrink: 0 }} />
+          <input
+            autoFocus
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && save()}
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              fontSize: 15, fontWeight: 600, color: T.color.text, fontFamily: T.fonts.body,
+              borderBottom: '1.5px solid ' + T.color.primary, paddingBottom: 2,
+            }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          {CAT_PALETTE.map(c => (
+            <button key={c} onClick={() => setColor(c)} style={{
+              width: 26, height: 26, borderRadius: 99, border: color === c ? '3px solid ' + T.color.text : '2px solid transparent',
+              background: c, cursor: 'pointer', padding: 0,
+              boxShadow: color === c ? '0 0 0 1px ' + c : 'none',
+              transition: 'transform .1s', transform: color === c ? 'scale(1.15)' : 'none',
+            }} />
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={save} style={{
+            border: 'none', borderRadius: 99, padding: '7px 18px',
+            background: T.color.primary, color: T.color.onPrimary,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
+          }}>שמור</button>
+          <button onClick={() => { setEditing(false); setLabel(cat.label); setColor(cat.color); }} style={{
+            border: 'none', borderRadius: 99, padding: '7px 14px',
+            background: T.color.surfaceAlt, color: T.color.textMuted,
+            fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
+          }}>ביטול</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 18px', borderBottom: '1px solid ' + softLine('0.07') }}>
+      <span style={{ width: 14, height: 14, borderRadius: 99, background: cat.color, flexShrink: 0 }} />
+      <div style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text }}>{cat.label}</div>
+      {confirmDel ? (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 12.5, color: '#e05c5c', fontWeight: 600 }}>למחוק?</span>
+          <button onClick={() => { onDelete?.(); setConfirmDel(false); }} style={{
+            border: 'none', cursor: 'pointer', borderRadius: 8, padding: '4px 10px',
+            background: '#e05c5c', color: '#fff', fontSize: 12.5, fontWeight: 700, fontFamily: T.fonts.body,
+          }}>כן</button>
+          <button onClick={() => setConfirmDel(false)} style={{
+            border: 'none', cursor: 'pointer', borderRadius: 8, padding: '4px 10px',
+            background: T.color.surfaceAlt, color: T.color.text, fontSize: 12.5, fontWeight: 700, fontFamily: T.fonts.body,
+          }}>לא</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 2 }}>
+          <button onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 7, borderRadius: 8 }}>
+            <Icon.edit size={15} color={T.color.textMuted} />
+          </button>
+          {!cat.builtin && onDelete && (
+            <button onClick={() => setConfirmDel(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 7, borderRadius: 8 }}>
+              <Icon.trash size={15} color="#e05c5c" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SettingsScreen({ user, dateFormat, allCategories, onDateFormatChange, onSaveCategory, onAddCategory, onDeleteCategory, onClose, onUserUpdated }: {
   user: User;
   dateFormat: DateFormat;
+  allCategories: Record<string, Category>;
   onDateFormatChange: (f: DateFormat) => void;
+  onSaveCategory: (cat: Category) => void;
+  onAddCategory: (label: string, color: string) => void;
+  onDeleteCategory: (id: string) => void;
   onClose: () => void;
   onUserUpdated: () => void;
 }) {
@@ -319,6 +421,32 @@ export function SettingsScreen({ user, dateFormat, onDateFormatChange, onClose, 
                 </button>
               ))}
             </div>
+          </div>
+        </Card>
+
+        {/* Categories section */}
+        <SectionLabel>קטגוריות</SectionLabel>
+        <Card>
+          {Object.values(allCategories).map(cat => (
+            <CatRow
+              key={cat.id}
+              cat={cat}
+              onSave={onSaveCategory}
+              onDelete={!cat.builtin ? () => onDeleteCategory(cat.id) : undefined}
+            />
+          ))}
+          <div style={{ padding: '12px 18px' }}>
+            <button
+              onClick={() => onAddCategory('קטגוריה חדשה', CAT_PALETTE[Math.floor(Math.random() * CAT_PALETTE.length)])}
+              style={{
+                border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+                display: 'flex', alignItems: 'center', gap: 8,
+                color: T.color.primary, fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
+              }}
+            >
+              <Icon.plus size={16} color={T.color.primary} />
+              הוסף קטגוריה
+            </button>
           </div>
         </Card>
 

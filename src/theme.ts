@@ -36,13 +36,11 @@ export function softLine(a = '0.25') {
   return `rgba(34,48,42,${a})`;
 }
 
-export function catColor(id: string): string {
-  const map: Record<string, string> = {
-    work: '#5b8fc4',
-    home: '#6aa890',
-    health: '#d98a6a',
-    family: '#b585c0',
-    personal: '#d4a23f',
+export function catColor(id: string, cats?: Record<string, { color: string }>): string {
+  if (cats?.[id]) return cats[id].color;
+  const defaults: Record<string, string> = {
+    work: '#5b8fc4', home: '#6aa890', health: '#d98a6a',
+    family: '#b585c0', personal: '#d4a23f',
   };
-  return map[id] ?? '#9aa39e';
+  return defaults[id] ?? '#9aa39e';
 }

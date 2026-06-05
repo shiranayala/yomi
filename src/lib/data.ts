@@ -1,16 +1,8 @@
-import type { Category, Task, ShoppingItem, Note, CalEvent, AgendaItem, CatId } from './types';
+import type { Task, ShoppingItem, Note, CalEvent, AgendaItem } from './types';
 import { todayStr } from './recurrence';
 
 export const TODAY = new Date();
 const tStr = todayStr();
-
-export const categories: Record<string, Category> = {
-  work:     { id: 'work',     label: 'עבודה',   color: '#5b8fc4' },
-  home:     { id: 'home',     label: 'בית',      color: '#6aa890' },
-  health:   { id: 'health',   label: 'בריאות',  color: '#d98a6a' },
-  family:   { id: 'family',   label: 'משפחה',   color: '#b585c0' },
-  personal: { id: 'personal', label: 'אישי',     color: '#d4a23f' },
-};
 
 export const weekdaysShort = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 export const monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];

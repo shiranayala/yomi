@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { theme } from './theme';
 import { TabBar, type TabId } from './components/TabBar';
 import { BottomSheet } from './components/BottomSheet';
@@ -18,7 +18,8 @@ import {
   onAuthStateChanged, authSignOut, getRedirectResult,
   type User,
 } from './lib/firebase';
-import type { Task, ShoppingItem, Note, CalEvent, Tag, Habit, HabitLog } from './lib/types';
+import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category } from './lib/types';
+import { CategoriesCtx, DEFAULT_CATEGORIES } from './lib/CategoriesContext';
 import type { DateFormat } from './lib/dateFormat';
 
 const T = theme;
@@ -59,8 +60,10 @@ export default function App() {
   const [notes, setNotes]       = useState<Note[]>([]);
   const [events, setEvents]     = useState<CalEvent[]>([]);
   const [tags, setTags]         = useState<Tag[]>([]);
-  const [habits, setHabits]     = useState<Habit[]>([]);
-  const [habitLogs, setHabitLogs] = useState<HabitLog[]>([]);
+  const [habits, setHabits]         = useState<Habit[]>([]);
+  const [habitLogs, setHabitLogs]   = useState<HabitLog[]>([]);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [userCategories, setUserCategories] = useState<Category[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const [fabOpen, setFabOpen]   = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -99,6 +102,8 @@ export default function App() {
     load<Tag>('tags', setTags);
     load<Habit>('habits', setHabits);
     load<HabitLog>('habitLogs', setHabitLogs);
+    load<ShoppingList>('shoppingLists', setShoppingLists);
+    load<Category>('categories', setUserCategories);
   }, [uid]);
 
   // ── Task operations ───────────────────────────────────────────────
@@ -129,6 +134,14 @@ export default function App() {
     });
   };
 
+  const quickAddLaterTask = (title: string) => {
+    saveTask({
+      id: 'nt' + (++idc.current),
+      title, cat: 'personal', done: false,
+      time: null, today: false, type: 'general', recurrence: 'once',
+    });
+  };
+
   // ── Event operations ──────────────────────────────────────────────
   const saveEvent = (ev: CalEvent) => {
     setEvents(evs => {
@@ -153,10 +166,30 @@ export default function App() {
     });
   };
 
-  const addShop = (title: string) => {
-    const item: ShoppingItem = { id: 'ns' + (++idc.current), title, done: false, aisle: 'אחר' };
+  const addShop = (title: string, listId: string) => {
+    const item: ShoppingItem = { id: 'ns' + (++idc.current), title, done: false, aisle: '', listId };
     setShopping(ss => [...ss, item]);
     fsSet('shopping', item.id, item);
+  };
+
+  const addShopList = (title: string): string => {
+    const list: ShoppingList = { id: 'sl' + (++idc.current), title };
+    setShoppingLists(ls => [...ls, list]);
+    fsSet('shoppingLists', list.id, list);
+    return list.id;
+  };
+
+  const editShopList = (id: string, title: string) => {
+    setShoppingLists(ls => ls.map(l => l.id === id ? { ...l, title } : l));
+    fsUpdate('shoppingLists', id, { title });
+  };
+
+  const deleteShopList = (id: string) => {
+    setShoppingLists(ls => ls.filter(l => l.id !== id));
+    fsDel('shoppingLists', id);
+    const toDelete = shopping.filter(s => s.listId === id);
+    setShopping(ss => ss.filter(s => s.listId !== id));
+    toDelete.forEach(s => fsDel('shopping', s.id));
   };
 
   const deleteShop = (id: string) => {
@@ -246,6 +279,43 @@ export default function App() {
     toDelete.forEach(l => fsDel('habitLogs', l.id));
   };
 
+  // ── Category operations ───────────────────────────────────────────
+  const allCategories = useMemo(() => {
+    const merged = { ...DEFAULT_CATEGORIES };
+    userCategories.forEach(cat => { merged[cat.id] = cat; });
+    return merged;
+  }, [userCategories]);
+
+  const saveCategory = (cat: Category) => {
+    setUserCategories(cs => {
+      const isNew = !cs.find(c => c.id === cat.id);
+      return isNew ? [...cs, cat] : cs.map(c => c.id === cat.id ? cat : c);
+    });
+    fsSet('categories', cat.id, cat);
+  };
+
+  const addCategory = (label: string, color: string) => {
+    const cat: Category = { id: 'cat' + (++idc.current), label, color };
+    setUserCategories(cs => [...cs, cat]);
+    fsSet('categories', cat.id, cat);
+  };
+
+  const deleteCategory = (id: string) => {
+    setUserCategories(cs => cs.filter(c => c.id !== id));
+    fsDel('categories', id);
+    const fallback = 'personal';
+    const tasksToFix = tasks.filter(t => t.cat === id);
+    if (tasksToFix.length) {
+      setTasks(ts => ts.map(t => t.cat === id ? { ...t, cat: fallback } : t));
+      tasksToFix.forEach(t => fsUpdate('tasks', t.id, { cat: fallback }));
+    }
+    const eventsToFix = events.filter(ev => ev.cat === id);
+    if (eventsToFix.length) {
+      setEvents(evs => evs.map(ev => ev.cat === id ? { ...ev, cat: fallback } : ev));
+      eventsToFix.forEach(ev => fsUpdate('events', ev.id, { cat: fallback }));
+    }
+  };
+
   // ── Sign out ──────────────────────────────────────────────────────
   const handleSignOut = async () => {
     if (auth) await authSignOut(auth);
@@ -331,6 +401,7 @@ export default function App() {
   const userEmail = auth?.currentUser?.email ?? authUser.email ?? '';
 
   return (
+    <CategoriesCtx.Provider value={allCategories}>
     <div dir="rtl" style={{
       height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       background: T.color.bg, color: T.color.text,
@@ -362,11 +433,21 @@ export default function App() {
             tasks={tasks}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
+            onAddLaterTask={quickAddLaterTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
           />
         )}
         {tab === 'shopping' && (
-          <ShoppingScreen shopping={shopping} onToggle={toggleShop} onAdd={addShop} onDelete={deleteShop} />
+          <ShoppingScreen
+            shopping={shopping}
+            shoppingLists={shoppingLists}
+            onToggle={toggleShop}
+            onAdd={addShop}
+            onDelete={deleteShop}
+            onAddList={addShopList}
+            onEditList={editShopList}
+            onDeleteList={deleteShopList}
+          />
         )}
         {tab === 'notes' && (
           <NotesScreen
@@ -445,7 +526,11 @@ export default function App() {
         <SettingsScreen
           user={authUser}
           dateFormat={dateFormat}
+          allCategories={allCategories}
           onDateFormatChange={handleDateFormatChange}
+          onSaveCategory={saveCategory}
+          onAddCategory={addCategory}
+          onDeleteCategory={deleteCategory}
           onClose={() => setShowSettings(false)}
           onUserUpdated={handleUserUpdated}
         />
@@ -496,5 +581,6 @@ export default function App() {
         )}
       </BottomSheet>
     </div>
+    </CategoriesCtx.Provider>
   );
 }

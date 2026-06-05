@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { theme, catColor } from '../theme';
-import { categories } from '../lib/data';
-import type { CatId, Reminder, Recurrence } from '../lib/types';
+import { theme } from '../theme';
+import { useCats } from '../lib/CategoriesContext';
+import type { Reminder, Recurrence } from '../lib/types';
 
 const T = theme;
 
@@ -90,14 +90,15 @@ export function Pills<T extends string>({
   );
 }
 
-export function CatPicker({ value, onChange }: { value: CatId; onChange: (v: CatId) => void }) {
+export function CatPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const cats = useCats();
   return (
     <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-      {Object.values(categories).map(cat => {
+      {Object.values(cats).map(cat => {
         const active = cat.id === value;
-        const c = catColor(cat.id);
+        const c = cat.color;
         return (
-          <button key={cat.id} onClick={() => onChange(cat.id as CatId)} type="button" style={{
+          <button key={cat.id} onClick={() => onChange(cat.id)} type="button" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '6px 12px', borderRadius: 99,
             border: active ? `2px solid ${c}` : '1.5px solid transparent',

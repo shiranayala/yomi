@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { theme, catColor } from '../theme';
+import { useCats } from '../lib/CategoriesContext';
 import { weekdaysShort } from '../lib/data';
 import type { CalEvent, Task } from '../lib/types';
 import {
@@ -35,6 +36,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
   onEditEvent: (ev: CalEvent) => void;
   onEditTask: (t: Task) => void;
 }) {
+  const cats = useCats();
   const [month, setMonth] = useState(THIS_MONTH);
   const [year, setYear]   = useState(THIS_YEAR);
   const [sel, setSel]     = useState(TODAY_DAY);
@@ -149,7 +151,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
                   {dayDots.slice(0, 3).map((cid: string, k: number) => (
                     <span key={k} style={{
                       width: 5, height: 5, borderRadius: 99,
-                      background: isSel ? 'rgba(255,255,255,0.9)' : catColor(cid),
+                      background: isSel ? 'rgba(255,255,255,0.9)' : catColor(cid, cats),
                     }} />
                   ))}
                 </span>
@@ -183,7 +185,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', background: T.color.surface,
                     borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-                    borderInlineStart: '3px solid ' + catColor(ev.cat), cursor: 'pointer',
+                    borderInlineStart: '3px solid ' + catColor(ev.cat, cats), cursor: 'pointer',
                   }}>
                     <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</span>
                     <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text }}>{ev.title}</span>
@@ -199,7 +201,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', background: T.color.surface,
                     borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-                    borderInlineStart: '3px solid ' + catColor(t.cat),
+                    borderInlineStart: '3px solid ' + catColor(t.cat, cats),
                     opacity: t.done ? 0.55 : 1, cursor: 'pointer',
                   }}>
                     {t.time && <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{t.time}</span>}

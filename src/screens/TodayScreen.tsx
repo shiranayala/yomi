@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { theme, catColor, softLine } from '../theme';
+import { useCats } from '../lib/CategoriesContext';
 import type { Task, CalEvent, Habit, HabitLog } from '../lib/types';
 import { isToday } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
@@ -34,7 +35,8 @@ type TimelineEntry =
   | { kind: 'task';  t: Task };
 
 function TimelineEventCard({ ev, onClick }: { ev: CalEvent; onClick: () => void }) {
-  const c = catColor(ev.cat);
+  const cats = useCats();
+  const c = catColor(ev.cat, cats);
   const recurring = ev.recurrence && ev.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
@@ -59,7 +61,8 @@ function TimelineEventCard({ ev, onClick }: { ev: CalEvent; onClick: () => void 
 function TimelineTaskCard({ t, onToggle, onClick }: {
   t: Task; onToggle: (id: string) => void; onClick: () => void;
 }) {
-  const c = catColor(t.cat);
+  const cats = useCats();
+  const c = catColor(t.cat, cats);
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
@@ -94,9 +97,10 @@ function TimelineItem({ entry, last, onToggleTask, onEditEvent, onEditTask }: {
   onEditEvent: (ev: CalEvent) => void;
   onEditTask: (t: Task) => void;
 }) {
+  const cats = useCats();
   const time = entry.kind === 'event' ? entry.ev.time : (entry.t.time ?? '');
   const end  = entry.kind === 'event' ? entry.ev.end  : undefined;
-  const c    = catColor(entry.kind === 'event' ? entry.ev.cat : entry.t.cat);
+  const c    = catColor(entry.kind === 'event' ? entry.ev.cat : entry.t.cat, cats);
 
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
@@ -121,6 +125,7 @@ function TimelineItem({ entry, last, onToggleTask, onEditEvent, onEditTask }: {
 function TaskItem({ t, onToggle, onClick }: {
   t: Task; onToggle: (id: string) => void; onClick: () => void;
 }) {
+  const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
@@ -130,7 +135,7 @@ function TaskItem({ t, onToggle, onClick }: {
       transition: 'opacity .2s', cursor: 'pointer',
     }}>
       <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat)} />
+        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -273,13 +278,13 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
           <img
             src="/yomi-logo-horizontal-white.svg"
             alt="יומי"
-            style={{ height: 26, opacity: 0.92, flexShrink: 0 }}
+            style={{ height: 44, opacity: 0.92, flexShrink: 0 }}
           />
         </div>
 
         {/* Greeting */}
-        <div style={{ fontFamily: T.fonts.hand, fontSize: 33, lineHeight: 1.1, marginBottom: 16 }}>
-          {getGreeting()}{userName ? `, ${userName}` : ''}
+        <div style={{ fontFamily: T.fonts.hand, fontSize: 28, lineHeight: 1.1, marginBottom: 16 }}>
+          {getGreeting()}{userName ? `, ${userName}!` : '!'}
         </div>
 
         {/* Weather */}

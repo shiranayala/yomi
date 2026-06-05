@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { Icon } from '../icons';
-import { theme, catColor, softLine } from '../theme';
-import { categories } from '../lib/data';
+import { theme, softLine } from '../theme';
+import { useCats } from '../lib/CategoriesContext';
 
 const T = theme;
 
 export function CatDot({ id, size = 8 }: { id: string; size?: number }) {
+  const cats = useCats();
+  const c = cats[id]?.color ?? '#9aa39e';
   return (
     <span style={{
       width: size, height: size, borderRadius: 99,
-      background: catColor(id), flexShrink: 0, display: 'inline-block',
+      background: c, flexShrink: 0, display: 'inline-block',
     }} />
   );
 }
 
 export function Chip({ id }: { id: string }) {
-  const c = catColor(id);
-  const cat = categories[id];
+  const cats = useCats();
+  const cat = cats[id];
+  const c = cat?.color ?? '#9aa39e';
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,

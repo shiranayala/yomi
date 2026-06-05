@@ -1,13 +1,19 @@
-export type CatId = 'work' | 'home' | 'health' | 'family' | 'personal';
+export type CatId = string;
 export type NoteTone = 'amber' | 'green' | 'blue' | 'purple' | 'plain';
 export type Reminder = 'none' | '15min' | '1hour' | '1day';
 export type Recurrence = 'once' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
 export type TaskType = 'general' | 'scheduled';
 
 export interface Category {
-  id: CatId;
+  id: string;
   label: string;
   color: string;
+  builtin?: boolean;
+}
+
+export interface ShoppingList {
+  id: string;
+  title: string;
 }
 
 export interface Task {
@@ -28,7 +34,8 @@ export interface ShoppingItem {
   id: string;
   title: string;
   done: boolean;
-  aisle: string;
+  aisle: string;    // legacy
+  listId?: string;
 }
 
 export interface Tag {
