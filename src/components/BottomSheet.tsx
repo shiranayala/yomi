@@ -61,8 +61,8 @@ export function BottomSheet({ open, onClose, title, children }: Props) {
           borderBottom: '1px solid ' + T.color.line,
         }}>
           <h2 style={{
-            margin: 0, fontSize: 18, fontWeight: 700, color: T.color.text,
-            fontFamily: T.fonts.hand,
+            margin: 0, fontSize: 18, fontWeight: 400, color: T.color.text,
+            fontFamily: T.fonts.heading,
           }}>{title}</h2>
           <button onClick={onClose} style={{
             width: 32, height: 32, borderRadius: 99, border: 'none',

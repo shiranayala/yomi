@@ -103,7 +103,7 @@ export function SectionHead({ children, sub }: { children: React.ReactNode; sub?
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, margin: '6px 2px 13px', paddingInlineStart: 4 }}>
       <h2 style={{
-        margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
+        margin: 0, fontFamily: T.fonts.heading, fontWeight: 400,
         fontSize: Math.round(23 * T.headingScale), color: T.color.text, lineHeight: 1.15,
       }}>{children}</h2>
       {sub && (
@@ -140,7 +140,7 @@ export function PageHeader({ icon, title, titleSub, sub, action }: {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{
-            margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
+            margin: 0, fontFamily: T.fonts.heading, fontWeight: 400,
             fontSize: Math.round(28 * T.headingScale), color: T.color.text, lineHeight: 1.1,
           }}>{title}</h1>
           {titleSub && (

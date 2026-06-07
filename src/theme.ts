@@ -1,7 +1,7 @@
 export const theme = {
   fonts: {
     hand: '"Gveret Levin AlefAlefAlef", cursive',
-    heading: '"Frank Ruhl Libre", "Times New Roman", serif',
+    heading: '"Secular One", system-ui, sans-serif',
     body: '"Rubik", system-ui, sans-serif',
   },
   color: {
