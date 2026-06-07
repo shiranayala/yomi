@@ -30,16 +30,17 @@ function newId() { return 'tsk' + Date.now(); }
 
 interface Props {
   initial?: Task;
+  defaultDate?: string;
   onSave: (t: Task) => void;
   onDelete?: (id: string) => void;
   onClose: () => void;
 }
 
-export function TaskForm({ initial, onSave, onDelete, onClose }: Props) {
+export function TaskForm({ initial, defaultDate, onSave, onDelete, onClose }: Props) {
   const isEdit = !!initial;
   const [title, setTitle]     = useState(initial?.title ?? '');
-  const [when, setWhen]       = useState<When>(getInitialWhen(initial));
-  const [date, setDate]       = useState(initial?.date ?? todayStr());
+  const [when, setWhen]       = useState<When>(defaultDate && !initial ? 'date' : getInitialWhen(initial));
+  const [date, setDate]       = useState(initial?.date ?? defaultDate ?? todayStr());
   const [time, setTime]       = useState(initial?.time ?? '');
   const [cat, setCat]         = useState<CatId>(initial?.cat ?? 'personal');
   const [recurrence, setRecurrence] = useState<Recurrence>(initial?.recurrence ?? 'once');

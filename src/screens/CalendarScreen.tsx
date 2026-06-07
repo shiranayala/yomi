@@ -10,7 +10,7 @@ import {
   type DateFormat,
 } from '../lib/dateFormat';
 import { isItemOnDate } from '../lib/recurrence';
-import { CatDot, SectionHead, NavBtn, PageHeader } from '../components/atoms';
+import { CatDot, NavBtn, PageHeader } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
@@ -29,17 +29,20 @@ function RecurIcon() {
   );
 }
 
-export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditTask }: {
+export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditTask, onAddEvent, onAddTask }: {
   events: CalEvent[];
   tasks: Task[];
   dateFormat: DateFormat;
   onEditEvent: (ev: CalEvent) => void;
   onEditTask: (t: Task) => void;
+  onAddEvent: (date: string) => void;
+  onAddTask: (date: string) => void;
 }) {
   const cats = useCats();
   const [month, setMonth] = useState(THIS_MONTH);
   const [year, setYear]   = useState(THIS_YEAR);
   const [sel, setSel]     = useState(TODAY_DAY);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
 
   const grid = useMemo(() => {
     const first = new Date(year, month, 1).getDay();
@@ -69,6 +72,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
   }, [events, tasks, month, year]);
 
   const selDate = new Date(year, month, sel);
+  const selDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(sel).padStart(2, '0')}`;
 
   const selEvents = events
     .filter(ev => isItemOnDate(ev.date, ev.recurrence ?? 'once', selDate))
@@ -163,16 +167,71 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
 
       {/* Selected day */}
       <div style={{ marginTop: 22 }}>
-        <SectionHead sub={selItems.length ? `${selItems.length} פריטים` : ''}>
-          {dateFormat === 'both' ? (
-            <>
-              {getGregorianDayMonth(selDate)}
-              <span style={{ display: 'block', fontSize: '0.68em', color: T.color.textMuted, fontWeight: 400, marginTop: 1 }}>
-                {getHebrewDayMonth(selDate)}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', margin: '6px 2px 13px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
+            <h2 style={{
+              margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
+              fontSize: Math.round(25 * T.headingScale), color: T.color.text, lineHeight: 1.15,
+            }}>
+              {dateFormat === 'both' ? (
+                <>
+                  {getGregorianDayMonth(selDate)}
+                  <span style={{ display: 'block', fontSize: '0.68em', color: T.color.textMuted, fontWeight: 400, marginTop: 1 }}>
+                    {getHebrewDayMonth(selDate)}
+                  </span>
+                </>
+              ) : formatDayMonth(selDate, dateFormat)}
+            </h2>
+            {selItems.length > 0 && (
+              <span style={{ fontSize: 12.5, color: T.color.textMuted, paddingBottom: 3 }}>
+                {selItems.length} פריטים
               </span>
-            </>
-          ) : formatDayMonth(selDate, dateFormat)}
-        </SectionHead>
+            )}
+          </div>
+
+          {/* Add button */}
+          <div style={{ position: 'relative', marginBottom: 4 }}>
+            {addMenuOpen && (
+              <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20 }} />
+            )}
+            <button
+              onClick={() => setAddMenuOpen(o => !o)}
+              style={{
+                width: 30, height: 30, borderRadius: 99,
+                background: T.color.primary, border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 20, color: '#fff', fontWeight: 300,
+                boxShadow: `0 2px 8px ${T.color.primary}55`,
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >+</button>
+            {addMenuOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', insetInlineEnd: 0, zIndex: 21,
+                background: '#fff', borderRadius: 16, padding: '6px 0',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)', minWidth: 148, direction: 'rtl',
+              }}>
+                <button onClick={() => { setAddMenuOpen(false); onAddTask(selDateStr); }} style={{
+                  width: '100%', border: 'none', background: 'none', cursor: 'pointer',
+                  padding: '11px 16px', fontSize: 14, fontWeight: 600,
+                  fontFamily: T.fonts.body, color: T.color.text,
+                  display: 'flex', alignItems: 'center', gap: 10, textAlign: 'right',
+                }}>
+                  <span style={{ fontSize: 16 }}>✓</span> משימה
+                </button>
+                <div style={{ height: 1, background: T.color.line, margin: '0 10px' }} />
+                <button onClick={() => { setAddMenuOpen(false); onAddEvent(selDateStr); }} style={{
+                  width: '100%', border: 'none', background: 'none', cursor: 'pointer',
+                  padding: '11px 16px', fontSize: 14, fontWeight: 600,
+                  fontFamily: T.fonts.body, color: T.color.text,
+                  display: 'flex', alignItems: 'center', gap: 10, textAlign: 'right',
+                }}>
+                  <span style={{ fontSize: 16 }}>📅</span> אירוע
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {selItems.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>

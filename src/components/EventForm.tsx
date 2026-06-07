@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { theme } from '../theme';
-import type { CalEvent, CatId, Reminder, Recurrence } from '../lib/types';
+import type { CalEvent, CatId, Recurrence } from '../lib/types';
 import { todayStr } from '../lib/recurrence';
 import {
-  Field, TextInput, DateInput, TimeInput, Pills, CatPicker,
-  REMINDER_OPTIONS, RecurrencePicker, Divider,
+  Field, TextInput, DateInput, TimeInput, CatPicker,
+  RecurrencePicker, Divider,
 } from './FormFields';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Icon } from '../icons';
@@ -13,6 +13,7 @@ const T = theme;
 
 interface Props {
   initial?: CalEvent;
+  defaultDate?: string;
   onSave: (ev: CalEvent) => void;
   onDelete?: (id: string) => void;
   onClose: () => void;
@@ -20,22 +21,20 @@ interface Props {
 
 function newId() { return 'ev' + Date.now(); }
 
-export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
+export function EventForm({ initial, defaultDate, onSave, onDelete, onClose }: Props) {
   const isEdit = !!initial;
   const [title, setTitle]   = useState(initial?.title ?? '');
-  const [date, setDate]     = useState(initial?.date ?? todayStr());
+  const [date, setDate]     = useState(initial?.date ?? defaultDate ?? todayStr());
   const [time, setTime]     = useState(initial?.time ?? '');
   const [end, setEnd]       = useState(initial?.end ?? '');
   const [cat, setCat]       = useState<CatId>(initial?.cat ?? 'personal');
   const [place, setPlace]   = useState(initial?.place ?? '');
-  const [reminder, setReminder]     = useState<Reminder>(initial?.reminder ?? 'none');
   const [recurrence, setRecurrence] = useState<Recurrence>(initial?.recurrence ?? 'once');
   const [notes, setNotes]   = useState(initial?.notes ?? '');
   const [expanded, setExpanded] = useState(
     isEdit && (
       (initial?.cat ?? 'personal') !== 'personal' ||
       !!initial?.place || !!initial?.notes ||
-      (initial?.reminder ?? 'none') !== 'none' ||
       (initial?.recurrence ?? 'once') !== 'once'
     )
   );
@@ -54,7 +53,7 @@ export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
       end: end || undefined,
       cat,
       place: place.trim() || undefined,
-      reminder,
+      reminder: initial?.reminder,
       recurrence,
       notes: notes.trim() || undefined,
     });
@@ -107,10 +106,6 @@ export function EventForm({ initial, onSave, onDelete, onClose }: Props) {
 
           <Field label="מיקום (אופציונלי)">
             <TextInput value={place} onChange={setPlace} />
-          </Field>
-
-          <Field label="תזכורת">
-            <Pills<Reminder> options={REMINDER_OPTIONS} value={reminder} onChange={setReminder} />
           </Field>
 
           <Field label="חזרה">

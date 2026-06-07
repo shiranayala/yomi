@@ -26,8 +26,8 @@ const T = theme;
 
 type FormState =
   | { kind: 'none' }
-  | { kind: 'addTask' }
-  | { kind: 'addEvent' }
+  | { kind: 'addTask'; date?: string }
+  | { kind: 'addEvent'; date?: string }
   | { kind: 'editTask'; task: Task }
   | { kind: 'editEvent'; event: CalEvent };
 
@@ -464,6 +464,8 @@ export default function App() {
             dateFormat={dateFormat}
             onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
+            onAddEvent={date => setForm({ kind: 'addEvent', date })}
+            onAddTask={date => setForm({ kind: 'addTask', date })}
           />
         )}
       </div>
@@ -559,6 +561,7 @@ export default function App() {
         {isTaskForm && (
           <TaskForm
             initial={form.kind === 'editTask' ? form.task : undefined}
+            defaultDate={form.kind === 'addTask' ? form.date : undefined}
             onSave={t => { saveTask(t); closeForm(); }}
             onDelete={form.kind === 'editTask' ? (id => { deleteTask(id); closeForm(); }) : undefined}
             onClose={closeForm}
@@ -574,6 +577,7 @@ export default function App() {
         {isEventForm && (
           <EventForm
             initial={form.kind === 'editEvent' ? form.event : undefined}
+            defaultDate={form.kind === 'addEvent' ? form.date : undefined}
             onSave={ev => { saveEvent(ev); closeForm(); }}
             onDelete={form.kind === 'editEvent' ? (id => { deleteEvent(id); closeForm(); }) : undefined}
             onClose={closeForm}
