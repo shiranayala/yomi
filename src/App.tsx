@@ -388,10 +388,9 @@ export default function App() {
       <div style={{
         height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
-        fontFamily: T.fonts.hand, fontSize: 52, color: '#fff',
         maxWidth: 480, margin: '0 auto',
       }}>
-        יומי
+        <img src="/yomi-logo-horizontal-white.svg" alt="יומי" style={{ height: 56, opacity: 0.92 }} />
       </div>
     );
   }
