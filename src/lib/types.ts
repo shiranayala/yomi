@@ -14,6 +14,7 @@ export interface Category {
 export interface ShoppingList {
   id: string;
   title: string;
+  color?: string;
 }
 
 export interface Task {

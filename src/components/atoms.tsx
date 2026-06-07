@@ -101,7 +101,7 @@ export function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (v:
 
 export function SectionHead({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, margin: '6px 2px 13px', paddingInlineStart: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, margin: '6px 2px 13px', paddingInlineStart: 8 }}>
       <h2 style={{
         margin: 0, fontFamily: T.fonts.heading, fontWeight: 400,
         fontSize: Math.round(23 * T.headingScale), color: T.color.text, lineHeight: 1.15,

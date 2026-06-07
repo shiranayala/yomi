@@ -6,6 +6,27 @@ import { Icon } from '../icons';
 
 const T = theme;
 
+const LIST_COLORS = [
+  '#e05c5c', '#e8874a', '#d4a23f', '#50a77f',
+  '#5b8fc4', '#9c6ba8', '#c47ab5', '#6b8fa3',
+];
+
+function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+      {LIST_COLORS.map(c => (
+        <button key={c} onClick={() => onChange(c)} style={{
+          width: 26, height: 26, borderRadius: 99, background: c, border: 'none',
+          cursor: 'pointer', flexShrink: 0,
+          boxShadow: c === value ? `0 0 0 2.5px #fff, 0 0 0 4.5px ${c}` : 'none',
+          transition: 'box-shadow .15s',
+          WebkitTapHighlightColor: 'transparent',
+        }} />
+      ))}
+    </div>
+  );
+}
+
 function ConfirmInline({ message, onConfirm, onCancel }: {
   message: string; onConfirm: () => void; onCancel: () => void;
 }) {
@@ -24,14 +45,16 @@ function ConfirmInline({ message, onConfirm, onCancel }: {
   );
 }
 
-function ListHeader({ list, onRename, onDelete }: {
+function ListHeader({ list, onRename, onChangeColor, onDelete }: {
   list: ShoppingList;
   onRename: (title: string) => void;
+  onChangeColor: (color: string) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(list.title);
   const [confirmDel, setConfirmDel] = useState(false);
+  const accentColor = list.color || T.color.primary;
 
   useEffect(() => { setTitle(list.title); }, [list.title]);
 
@@ -43,44 +66,60 @@ function ListHeader({ list, onRename, onDelete }: {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minHeight: 32 }}>
-      {editing ? (
-        <input
-          autoFocus
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onBlur={save}
-          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setTitle(list.title); setEditing(false); } }}
-          style={{
-            flex: 1, border: 'none', outline: 'none', background: 'transparent',
-            fontSize: 13, fontWeight: 700, color: T.color.textMuted, fontFamily: T.fonts.body,
-            borderBottom: '1.5px solid ' + T.color.primary, paddingBottom: 1,
-            textTransform: 'uppercase', letterSpacing: 0.3,
-          }}
-        />
-      ) : (
-        <div style={{
-          flex: 1, fontSize: 13, fontWeight: 700, color: T.color.textMuted,
-          letterSpacing: 0.3,
-        }}>
-          {list.title}
-        </div>
-      )}
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 32 }}>
+        <span style={{
+          width: 10, height: 10, borderRadius: 99,
+          background: accentColor, flexShrink: 0,
+        }} />
 
-      {confirmDel ? (
-        <ConfirmInline message="למחוק?" onConfirm={onDelete} onCancel={() => setConfirmDel(false)} />
-      ) : (
-        <div style={{ display: 'flex', gap: 2 }}>
-          <button onClick={() => setEditing(true)} style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: 5, borderRadius: 8,
+        {editing ? (
+          <input
+            autoFocus
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={save}
+            onKeyDown={e => {
+              if (e.key === 'Enter') save();
+              if (e.key === 'Escape') { setTitle(list.title); setEditing(false); }
+            }}
+            style={{
+              flex: 1, border: 'none', outline: 'none', background: 'transparent',
+              fontSize: 13, fontWeight: 700, color: T.color.textMuted, fontFamily: T.fonts.body,
+              borderBottom: '1.5px solid ' + accentColor, paddingBottom: 1,
+              letterSpacing: 0.3,
+            }}
+          />
+        ) : (
+          <div style={{
+            flex: 1, fontSize: 13, fontWeight: 700, color: T.color.textMuted,
+            letterSpacing: 0.3,
           }}>
-            <Icon.edit size={14} color={T.color.textMuted} />
-          </button>
-          <button onClick={() => setConfirmDel(true)} style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: 5, borderRadius: 8,
-          }}>
-            <Icon.trash size={14} color="#e05c5c" />
-          </button>
+            {list.title}
+          </div>
+        )}
+
+        {confirmDel ? (
+          <ConfirmInline message="למחוק?" onConfirm={onDelete} onCancel={() => setConfirmDel(false)} />
+        ) : (
+          <div style={{ display: 'flex', gap: 2 }}>
+            <button onClick={() => setEditing(e => !e)} style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 5, borderRadius: 8,
+            }}>
+              <Icon.edit size={14} color={T.color.textMuted} />
+            </button>
+            <button onClick={() => setConfirmDel(true)} style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 5, borderRadius: 8,
+            }}>
+              <Icon.trash size={14} color="#e05c5c" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {editing && (
+        <div style={{ paddingInlineStart: 18, marginTop: 10 }}>
+          <ColorPicker value={accentColor} onChange={c => { onChangeColor(c); }} />
         </div>
       )}
     </div>
@@ -119,11 +158,14 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
   onToggle: (id: string) => void;
   onAdd: (title: string, listId: string) => void;
   onDelete: (id: string) => void;
-  onAddList: (title: string) => string;
-  onEditList: (id: string, title: string) => void;
+  onAddList: (title: string, color: string) => string;
+  onEditList: (id: string, title: string, color?: string) => void;
   onDeleteList: (id: string) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState(LIST_COLORS[0]);
 
   // Auto-select first list when lists load or change
   useEffect(() => {
@@ -141,17 +183,25 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
   const listItems = selectedId ? shopping.filter(s => s.listId === selectedId) : [];
   const shopLeft = listItems.filter(s => !s.done).length;
 
-  const totalLeft = shopping.filter(s => !s.done).length;
+  const validListIds = new Set(shoppingLists.map(l => l.id));
+  const totalLeft = shopping.filter(s => !s.done && validListIds.has(s.listId ?? '')).length;
 
-  function handleAddList() {
-    const id = onAddList('רשימה חדשה');
+  function handleStartCreate() {
+    setNewName('');
+    setNewColor(LIST_COLORS[shoppingLists.length % LIST_COLORS.length]);
+    setCreating(true);
+  }
+
+  function handleConfirmCreate() {
+    const name = newName.trim() || 'רשימה חדשה';
+    const id = onAddList(name, newColor);
     setSelectedId(id);
+    setCreating(false);
   }
 
   function handleDeleteList(id: string) {
     const idx = shoppingLists.findIndex(l => l.id === id);
     onDeleteList(id);
-    // Select adjacent list after delete
     const remaining = shoppingLists.filter(l => l.id !== id);
     if (remaining.length > 0) {
       setSelectedId(remaining[Math.max(0, idx - 1)].id);
@@ -165,29 +215,29 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
       <PageHeader
         icon={<Icon.cart size={26} color="#fff" sw={1.8} />}
         title="קניות"
-        sub={shopping.length > 0
-          ? (totalLeft > 0 ? `נשארו ${totalLeft} פריטים` : 'הכל קנוי! 🎉')
-          : undefined}
+        sub={totalLeft > 0 ? `נשארו ${totalLeft} פריטים` : (shoppingLists.length > 0 ? 'הכל קנוי! 🎉' : undefined)}
       />
 
       {/* List tabs */}
       <div style={{
-        overflowX: 'auto', display: 'flex', gap: 8,
+        overflowX: 'auto', display: 'flex', gap: 8, alignItems: 'center',
         padding: '4px 18px 16px', scrollbarWidth: 'none',
         WebkitOverflowScrolling: 'touch' as React.CSSProperties['WebkitOverflowScrolling'],
       }}>
         {shoppingLists.map(list => {
           const count = shopping.filter(s => s.listId === list.id && !s.done).length;
           const isSelected = list.id === selectedId;
+          const accent = list.color || T.color.primary;
           return (
             <button
               key={list.id}
               onClick={() => setSelectedId(list.id)}
               style={{
                 flexShrink: 0, padding: '8px 16px', borderRadius: 99,
-                background: isSelected ? T.color.primary : T.color.surface,
-                color: isSelected ? T.color.onPrimary : T.color.text,
-                border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                background: isSelected ? accent : T.color.surface,
+                color: isSelected ? '#fff' : T.color.text,
+                border: isSelected ? 'none' : `2px solid ${accent}30`,
+                fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 boxShadow: T.cardShadow, WebkitTapHighlightColor: 'transparent',
                 transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 7,
               }}
@@ -196,8 +246,8 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
               {count > 0 && (
                 <span style={{
                   minWidth: 20, height: 20, borderRadius: 99, padding: '0 5px',
-                  background: isSelected ? 'rgba(255,255,255,0.3)' : T.color.primarySoft,
-                  color: isSelected ? '#fff' : T.color.primaryDeep,
+                  background: isSelected ? 'rgba(255,255,255,0.3)' : accent + '22',
+                  color: isSelected ? '#fff' : accent,
                   fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>{count}</span>
               )}
@@ -205,7 +255,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
           );
         })}
         <button
-          onClick={handleAddList}
+          onClick={handleStartCreate}
           style={{
             flexShrink: 0, width: 36, height: 36, borderRadius: 99,
             background: T.color.surface, border: '1.5px dashed ' + softLine('0.25'),
@@ -216,11 +266,50 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
         >+</button>
       </div>
 
+      {/* New list creation form */}
+      {creating && (
+        <div style={{ padding: '0 18px 16px' }}>
+          <div style={{
+            background: T.color.surface, borderRadius: T.radius.tile,
+            boxShadow: T.cardShadow, padding: '16px',
+          }}>
+            <input
+              autoFocus
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleConfirmCreate();
+                if (e.key === 'Escape') setCreating(false);
+              }}
+              placeholder="שם הרשימה…"
+              style={{
+                width: '100%', border: 'none', outline: 'none', background: 'transparent',
+                fontSize: 16, fontWeight: 600, color: T.color.text,
+                fontFamily: T.fonts.body, marginBottom: 14,
+              }}
+            />
+            <ColorPicker value={newColor} onChange={setNewColor} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button onClick={handleConfirmCreate} style={{
+                flex: 1, border: 'none', borderRadius: 99, padding: '11px 0',
+                background: newColor, color: '#fff',
+                fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
+              }}>צרי רשימה</button>
+              <button onClick={() => setCreating(false)} style={{
+                border: 'none', borderRadius: 99, padding: '11px 16px',
+                background: T.color.surfaceAlt, color: T.color.text,
+                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: T.fonts.body,
+              }}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ padding: '0 18px' }}>
-        {shoppingLists.length === 0 && (
+        {shoppingLists.length === 0 && !creating && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: T.color.textMuted, fontSize: 15 }}>
             <div style={{ fontFamily: T.fonts.hand, fontSize: 28, marginBottom: 12 }}>אין רשימות עדיין</div>
-            <button onClick={handleAddList} style={{
+            <button onClick={handleStartCreate} style={{
               border: 'none', borderRadius: 99, padding: '12px 24px',
               background: T.color.primary, color: T.color.onPrimary,
               fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
@@ -233,6 +322,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
             <ListHeader
               list={selectedList}
               onRename={title => onEditList(selectedList.id, title)}
+              onChangeColor={color => onEditList(selectedList.id, selectedList.title, color)}
               onDelete={() => handleDeleteList(selectedList.id)}
             />
 
@@ -249,6 +339,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
               <div style={{
                 background: T.color.surface, borderRadius: T.radius.tile,
                 boxShadow: T.cardShadow, overflow: 'hidden', marginBottom: 10,
+                borderInlineStart: `3px solid ${selectedList.color || T.color.primary}`,
               }}>
                 {listItems.map((s, i) => (
                   <div key={s.id} style={{
@@ -256,7 +347,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                     opacity: s.done ? 0.45 : 1, transition: 'opacity .2s',
                     borderBottom: i < listItems.length - 1 ? '1px solid ' + T.color.line : 'none',
                   }}>
-                    <Check checked={s.done} onToggle={() => onToggle(s.id)} />
+                    <Check checked={s.done} onToggle={() => onToggle(s.id)} color={selectedList.color} />
                     <span
                       onClick={() => onToggle(s.id)}
                       style={{

@@ -172,16 +172,16 @@ export default function App() {
     fsSet('shopping', item.id, item);
   };
 
-  const addShopList = (title: string): string => {
-    const list: ShoppingList = { id: 'sl' + (++idc.current), title };
+  const addShopList = (title: string, color: string): string => {
+    const list: ShoppingList = { id: 'sl' + (++idc.current), title, color };
     setShoppingLists(ls => [...ls, list]);
     fsSet('shoppingLists', list.id, list);
     return list.id;
   };
 
-  const editShopList = (id: string, title: string) => {
-    setShoppingLists(ls => ls.map(l => l.id === id ? { ...l, title } : l));
-    fsUpdate('shoppingLists', id, { title });
+  const editShopList = (id: string, title: string, color?: string) => {
+    setShoppingLists(ls => ls.map(l => l.id === id ? { ...l, title, ...(color ? { color } : {}) } : l));
+    fsUpdate('shoppingLists', id, { title, ...(color ? { color } : {}) });
   };
 
   const deleteShopList = (id: string) => {
@@ -196,6 +196,18 @@ export default function App() {
     setShopping(ss => ss.filter(s => s.id !== id));
     fsDel('shopping', id);
   };
+
+  // One-time cleanup of orphaned shopping items (items whose list was deleted)
+  const shopCleanupDone = useRef(false);
+  useEffect(() => {
+    if (shopCleanupDone.current || !shoppingLists.length) return;
+    shopCleanupDone.current = true;
+    const validIds = new Set(shoppingLists.map(l => l.id));
+    const orphans = shopping.filter(s => s.listId && !validIds.has(s.listId));
+    if (!orphans.length) return;
+    setShopping(ss => ss.filter(s => !s.listId || validIds.has(s.listId)));
+    orphans.forEach(s => fsDel('shopping', s.id));
+  }, [shopping, shoppingLists]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Note operations ───────────────────────────────────────────────
   const saveNote = (note: Note) => {

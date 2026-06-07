@@ -309,7 +309,7 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
         </div>
 
         {/* Greeting */}
-        <div style={{ fontFamily: T.fonts.heading, fontSize: 28, lineHeight: 1.1, marginBottom: 16 }}>
+        <div style={{ fontFamily: T.fonts.heading, fontSize: 28, lineHeight: 1.1, marginBottom: 16, paddingInlineStart: 8 }}>
           {getGreeting()}{userName ? `, ${userName}!` : '!'}
         </div>
 
