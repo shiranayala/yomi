@@ -6,7 +6,7 @@ import { isToday } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
 import { HabitsSection } from '../components/HabitsSection';
 import { Icon } from '../icons';
-import { weather } from '../lib/data';
+import { useWeather, type WeatherIconKey } from '../lib/useWeather';
 import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
 
 function getGreeting() {
@@ -159,6 +159,31 @@ function TaskItem({ t, onToggle, onClick }: {
   );
 }
 
+// ── Weather ───────────────────────────────────────────────────────
+
+const WEATHER_ICONS: Record<WeatherIconKey, (p: { size: number; color: string }) => React.ReactNode> = {
+  sun:            p => <Icon.sun            {...p} />,
+  cloudSun:       p => <Icon.cloudSun       {...p} />,
+  cloud:          p => <Icon.cloud          {...p} />,
+  cloudRain:      p => <Icon.cloudRain      {...p} />,
+  cloudSnow:      p => <Icon.cloudSnow      {...p} />,
+  fog:            p => <Icon.fog            {...p} />,
+  cloudLightning: p => <Icon.cloudLightning {...p} />,
+};
+
+function WeatherWidget({ temp, label, icon }: { temp: number; label: string; icon: WeatherIconKey }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 7,
+      background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '7px 13px',
+      fontSize: 13.5, fontWeight: 600,
+    }}>
+      {WEATHER_ICONS[icon]({ size: 16, color: T.color.onPrimary })}
+      {temp}° {label}
+    </span>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────
 
 export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onToggleHabit, onAddHabit, onEditHabit, onDeleteHabit, onOpenSettings, onSignOut }: {
@@ -181,6 +206,7 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
   onSignOut: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const weather = useWeather();
   const now = new Date();
   const dayName = `יום ${DAY_NAMES[now.getDay()]}`;
   const primaryDate = dateFormat === 'hebrew'
@@ -288,13 +314,9 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
         </div>
 
         {/* Weather */}
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 7,
-          background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '7px 13px',
-          fontSize: 13.5, fontWeight: 600,
-        }}>
-          <Icon.sun size={16} color={T.color.onPrimary} />{weather.temp}° {weather.label}
-        </span>
+        {weather && (
+          <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
+        )}
       </div>
 
       {/* Floating content card */}
