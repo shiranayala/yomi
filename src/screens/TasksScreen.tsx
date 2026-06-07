@@ -70,8 +70,9 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
 }) {
   const tStr = todayStr();
 
-  const { todayTasks, laterTasks, dateSections } = useMemo(() => {
+  const { todayTasks, overdueTasks, laterTasks, dateSections } = useMemo(() => {
     const today: Task[] = [];
+    const overdue: Task[] = [];
     const byDate: Record<string, Task[]> = {};
     const later: Task[] = [];
 
@@ -81,6 +82,10 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
         return;
       }
       if (t.date) {
+        if (t.date < tStr) {
+          if (!t.done) overdue.push(t);
+          return;
+        }
         if (!byDate[t.date]) byDate[t.date] = [];
         byDate[t.date].push(t);
         return;
@@ -89,6 +94,7 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
     });
 
     today.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+    overdue.sort((a, b) => a.date!.localeCompare(b.date!));
 
     const sortedDates = Object.keys(byDate).sort();
     const sections = sortedDates.map(date => ({
@@ -97,7 +103,7 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
       tasks: byDate[date].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '')),
     }));
 
-    return { todayTasks: today, laterTasks: later, dateSections: sections };
+    return { todayTasks: today, overdueTasks: overdue, laterTasks: later, dateSections: sections };
   }, [tasks, tStr]);
 
   const doneTodayCount = todayTasks.filter(t => t.done).length;
@@ -124,6 +130,19 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
             </div>
           )}
         </div>
+
+        {/* Overdue */}
+        {overdueTasks.length > 0 && (
+          <>
+            <div style={{ height: 18 }} />
+            <SectionHead sub={`${overdueTasks.length}`}>בפיגור</SectionHead>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {overdueTasks.map(t => (
+                <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Later — no date */}
         <div style={{ height: 18 }} />

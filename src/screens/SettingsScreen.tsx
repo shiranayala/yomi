@@ -249,8 +249,8 @@ export function SettingsScreen({ user, dateFormat, allCategories, onDateFormatCh
             <Icon.settings size={24} color="#fff" sw={1.6} />
           </div>
           <h1 style={{
-            flex: 1, margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
-            fontSize: 34, color: T.color.text, lineHeight: 1.1,
+            flex: 1, margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
+            fontSize: 30, color: T.color.text, lineHeight: 1.1,
           }}>
             הגדרות
           </h1>

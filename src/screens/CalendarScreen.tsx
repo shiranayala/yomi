@@ -170,8 +170,8 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', margin: '6px 2px 13px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
             <h2 style={{
-              margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
-              fontSize: Math.round(25 * T.headingScale), color: T.color.text, lineHeight: 1.15,
+              margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
+              fontSize: Math.round(23 * T.headingScale), color: T.color.text, lineHeight: 1.15,
             }}>
               {dateFormat === 'both' ? (
                 <>

@@ -101,10 +101,10 @@ export function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (v:
 
 export function SectionHead({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, margin: '6px 2px 13px' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, margin: '6px 2px 13px', paddingInlineStart: 4 }}>
       <h2 style={{
-        margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
-        fontSize: Math.round(25 * T.headingScale), color: T.color.text, lineHeight: 1.15,
+        margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
+        fontSize: Math.round(23 * T.headingScale), color: T.color.text, lineHeight: 1.15,
       }}>{children}</h2>
       {sub && (
         <span style={{ fontSize: 12.5, color: T.color.textMuted, paddingBottom: 3 }}>{sub}</span>
@@ -140,8 +140,8 @@ export function PageHeader({ icon, title, titleSub, sub, action }: {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{
-            margin: 0, fontFamily: T.fonts.hand, fontWeight: 400,
-            fontSize: Math.round(32 * T.headingScale), color: T.color.text, lineHeight: 1.1,
+            margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
+            fontSize: Math.round(28 * T.headingScale), color: T.color.text, lineHeight: 1.1,
           }}>{title}</h1>
           {titleSub && (
             <div style={{ fontSize: 12, color: T.color.textMuted, marginTop: 1 }}>{titleSub}</div>
