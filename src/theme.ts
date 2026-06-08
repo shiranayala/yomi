@@ -1,7 +1,7 @@
 export const theme = {
   fonts: {
     hand: '"Gveret Levin AlefAlefAlef", cursive',
-    heading: '"Secular One", system-ui, sans-serif',
+    heading: '"Assistant", system-ui, sans-serif',
     body: '"Rubik", system-ui, sans-serif',
   },
   color: {

@@ -33,7 +33,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
   events: CalEvent[];
   tasks: Task[];
   dateFormat: DateFormat;
-  onEditEvent: (ev: CalEvent) => void;
+  onEditEvent: (ev: CalEvent, date: string) => void;
   onEditTask: (t: Task) => void;
   onAddEvent: (date: string) => void;
   onAddTask: (date: string) => void;
@@ -60,7 +60,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month, d);
       const evCats = events
-        .filter(ev => isItemOnDate(ev.date, ev.recurrence, date))
+        .filter(ev => isItemOnDate(ev.date, ev.recurrence, date, ev.excludeDates))
         .map(ev => ev.cat);
       const taskCats = tasks
         .filter(t => t.date && isItemOnDate(t.date, t.recurrence, date))
@@ -75,7 +75,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
   const selDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(sel).padStart(2, '0')}`;
 
   const selEvents = events
-    .filter(ev => isItemOnDate(ev.date, ev.recurrence ?? 'once', selDate))
+    .filter(ev => isItemOnDate(ev.date, ev.recurrence ?? 'once', selDate, ev.excludeDates))
     .sort((a, b) => a.time.localeCompare(b.time));
 
   const isSelToday = sel === TODAY_DAY && month === THIS_MONTH && year === THIS_YEAR;
@@ -170,7 +170,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', margin: '6px 2px 13px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10 }}>
             <h2 style={{
-              margin: 0, fontFamily: T.fonts.heading, fontWeight: 400,
+              margin: 0, fontFamily: T.fonts.heading, fontWeight: 700,
               fontSize: Math.round(23 * T.headingScale), color: T.color.text, lineHeight: 1.15,
             }}>
               {dateFormat === 'both' ? (
@@ -240,7 +240,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
                 const ev = item.ev;
                 const recurring = ev.recurrence && ev.recurrence !== 'once';
                 return (
-                  <div key={ev.id} onClick={() => onEditEvent(ev)} style={{
+                  <div key={ev.id} onClick={() => onEditEvent(ev, selDateStr)} style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', background: T.color.surface,
                     borderRadius: T.radius.tile, boxShadow: T.cardShadow,

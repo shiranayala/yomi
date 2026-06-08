@@ -29,7 +29,11 @@ type FormState =
   | { kind: 'addTask'; date?: string }
   | { kind: 'addEvent'; date?: string }
   | { kind: 'editTask'; task: Task }
-  | { kind: 'editEvent'; event: CalEvent };
+  | { kind: 'editEvent'; event: CalEvent; occurrenceDate?: string };
+
+type PendingEventOp =
+  | { kind: 'save';   ev: CalEvent; occurrenceDate: string }
+  | { kind: 'delete'; id: string;   occurrenceDate: string };
 
 function clean(data: object): object {
   return JSON.parse(JSON.stringify(data));
@@ -65,6 +69,7 @@ export default function App() {
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [userCategories, setUserCategories] = useState<Category[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
+  const [pendingEventOp, setPendingEventOp] = useState<PendingEventOp | null>(null);
   const [fabOpen, setFabOpen]   = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const idc = useRef(300);
@@ -142,6 +147,14 @@ export default function App() {
     });
   };
 
+  const deferTask = (id: string) => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    setTasks(ts => ts.map(t => t.id === id ? { ...t, today: false, date: dateStr } : t));
+    fsUpdate('tasks', id, { today: false, date: dateStr });
+  };
+
   // ── Event operations ──────────────────────────────────────────────
   const saveEvent = (ev: CalEvent) => {
     setEvents(evs => {
@@ -154,6 +167,66 @@ export default function App() {
   const deleteEvent = (id: string) => {
     setEvents(evs => evs.filter(e => e.id !== id));
     fsDel('events', id);
+  };
+
+  const handleEventSave = (ev: CalEvent) => {
+    const original = events.find(x => x.id === ev.id);
+    const isRecurring = original?.recurrence && original.recurrence !== 'once';
+    if (original && isRecurring && form.kind === 'editEvent' && form.occurrenceDate) {
+      setPendingEventOp({ kind: 'save', ev, occurrenceDate: form.occurrenceDate });
+      closeForm();
+      return;
+    }
+    saveEvent(ev);
+    closeForm();
+  };
+
+  const handleEventDelete = (id: string) => {
+    const ev = events.find(e => e.id === id);
+    const isRecurring = ev?.recurrence && ev.recurrence !== 'once';
+    if (ev && isRecurring && form.kind === 'editEvent' && form.occurrenceDate) {
+      setPendingEventOp({ kind: 'delete', id, occurrenceDate: form.occurrenceDate });
+      closeForm();
+      return;
+    }
+    deleteEvent(id);
+    closeForm();
+  };
+
+  const applyEventScopeThis = () => {
+    if (!pendingEventOp) return;
+    if (pendingEventOp.kind === 'save') {
+      const { ev, occurrenceDate } = pendingEventOp;
+      const original = events.find(x => x.id === ev.id);
+      if (original) {
+        const updated = { ...original, excludeDates: [...(original.excludeDates ?? []), occurrenceDate] };
+        setEvents(evs => evs.map(e => e.id === original.id ? updated : e));
+        fsSet('events', original.id, updated);
+      }
+      const newId = 'ev' + Date.now();
+      const { excludeDates: _ex, ...evBase } = ev;
+      const newEv: CalEvent = { ...evBase, id: newId, date: occurrenceDate, recurrence: 'once' };
+      setEvents(evs => [...evs, newEv]);
+      fsSet('events', newId, newEv);
+    } else {
+      const original = events.find(x => x.id === pendingEventOp.id);
+      if (original) {
+        const updated = { ...original, excludeDates: [...(original.excludeDates ?? []), pendingEventOp.occurrenceDate] };
+        setEvents(evs => evs.map(e => e.id === original.id ? updated : e));
+        fsSet('events', original.id, updated);
+      }
+    }
+    setPendingEventOp(null);
+  };
+
+  const applyEventScopeSeries = () => {
+    if (!pendingEventOp) return;
+    if (pendingEventOp.kind === 'save') {
+      saveEvent(pendingEventOp.ev);
+    } else {
+      deleteEvent(pendingEventOp.id);
+    }
+    setPendingEventOp(null);
   };
 
   // ── Shopping operations ───────────────────────────────────────────
@@ -430,7 +503,7 @@ export default function App() {
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
-            onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
+            onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
             onToggleHabit={toggleHabit}
             onAddHabit={addHabit}
             onEditHabit={editHabit}
@@ -446,6 +519,7 @@ export default function App() {
             onAddTask={quickAddTask}
             onAddLaterTask={quickAddLaterTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
+            onDeferTask={deferTask}
           />
         )}
         {tab === 'shopping' && (
@@ -473,7 +547,7 @@ export default function App() {
             events={events}
             tasks={tasks}
             dateFormat={dateFormat}
-            onEditEvent={ev => setForm({ kind: 'editEvent', event: ev })}
+            onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onAddEvent={date => setForm({ kind: 'addEvent', date })}
             onAddTask={date => setForm({ kind: 'addTask', date })}
@@ -589,12 +663,51 @@ export default function App() {
           <EventForm
             initial={form.kind === 'editEvent' ? form.event : undefined}
             defaultDate={form.kind === 'addEvent' ? form.date : undefined}
-            onSave={ev => { saveEvent(ev); closeForm(); }}
-            onDelete={form.kind === 'editEvent' ? (id => { deleteEvent(id); closeForm(); }) : undefined}
+            onSave={handleEventSave}
+            onDelete={form.kind === 'editEvent' ? handleEventDelete : undefined}
             onClose={closeForm}
           />
         )}
       </BottomSheet>
+
+      {/* Recurring event scope dialog */}
+      {pendingEventOp && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '24px 24px 0 0',
+            padding: '24px 20px 40px', width: '100%', maxWidth: 480,
+            direction: 'rtl',
+          }}>
+            <h3 style={{ margin: '0 0 8px', fontFamily: T.fonts.heading, fontWeight: 700, fontSize: 18, color: T.color.text }}>
+              {pendingEventOp.kind === 'save' ? 'עריכת אירוע חוזר' : 'מחיקת אירוע חוזר'}
+            </h3>
+            <p style={{ margin: '0 0 20px', fontSize: 14, color: T.color.textMuted }}>
+              האירוע הזה הוא חלק מסדרה חוזרת. מה ברצונך לשנות?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={applyEventScopeThis} style={{
+                border: 'none', borderRadius: 99, padding: '13px 0',
+                background: T.color.primarySoft, color: T.color.primaryDeep,
+                fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
+              }}>רק האירוע הזה</button>
+              <button onClick={applyEventScopeSeries} style={{
+                border: 'none', borderRadius: 99, padding: '13px 0',
+                background: T.color.primary, color: '#fff',
+                fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
+              }}>{pendingEventOp.kind === 'save' ? 'עדכן את כל הסדרה' : 'מחק את כל הסדרה'}</button>
+              <button onClick={() => setPendingEventOp(null)} style={{
+                border: 'none', borderRadius: 99, padding: '11px 0',
+                background: 'transparent', color: T.color.textMuted,
+                fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: T.fonts.body,
+              }}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </CategoriesCtx.Provider>
   );

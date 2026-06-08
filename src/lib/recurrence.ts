@@ -16,11 +16,18 @@ export function isItemOnDate(
   itemDate: string,
   recurrence: Recurrence = 'once',
   checkDate: Date,
+  excludeDates?: string[],
 ): boolean {
   const start = dayStart(parseLocalDate(itemDate));
   const check = dayStart(checkDate);
 
   if (start > check) return false;
+
+  if (excludeDates?.length) {
+    const d = checkDate;
+    const checkStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (excludeDates.includes(checkStr)) return false;
+  }
 
   switch (recurrence) {
     case 'once':
@@ -38,8 +45,8 @@ export function isItemOnDate(
   }
 }
 
-export function isToday(itemDate: string, recurrence: Recurrence = 'once'): boolean {
-  return isItemOnDate(itemDate, recurrence, new Date());
+export function isToday(itemDate: string, recurrence: Recurrence = 'once', excludeDates?: string[]): boolean {
+  return isItemOnDate(itemDate, recurrence, new Date(), excludeDates);
 }
 
 export const todayStr = (): string => {

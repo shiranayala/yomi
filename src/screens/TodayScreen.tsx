@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { theme, catColor, softLine } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
 import type { Task, CalEvent, Habit, HabitLog } from '../lib/types';
-import { isToday } from '../lib/recurrence';
+import { isToday, todayStr } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
 import { HabitsSection } from '../components/HabitsSection';
 import { Icon } from '../icons';
@@ -85,8 +85,8 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
           <span style={{ flex: 1 }}>{t.title}</span>
           {recurring && <RecurIcon />}
         </div>
-        <div style={{ marginTop: 4 }}><Chip id={t.cat} /></div>
       </div>
+      <Chip id={t.cat} />
     </div>
   );
 }
@@ -94,7 +94,7 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
 function TimelineItem({ entry, last, onToggleTask, onEditEvent, onEditTask }: {
   entry: TimelineEntry; last: boolean;
   onToggleTask: (id: string) => void;
-  onEditEvent: (ev: CalEvent) => void;
+  onEditEvent: (ev: CalEvent, date: string) => void;
   onEditTask: (t: Task) => void;
 }) {
   const cats = useCats();
@@ -113,7 +113,7 @@ function TimelineItem({ entry, last, onToggleTask, onEditEvent, onEditTask }: {
         {!last && <span style={{ flex: 1, width: 2, background: softLine('0.18'), marginTop: 2 }} />}
       </div>
       {entry.kind === 'event'
-        ? <TimelineEventCard ev={entry.ev} onClick={() => onEditEvent(entry.ev)} />
+        ? <TimelineEventCard ev={entry.ev} onClick={() => onEditEvent(entry.ev, todayStr())} />
         : <TimelineTaskCard  t={entry.t}  onToggle={onToggleTask} onClick={() => onEditTask(entry.t)} />
       }
     </div>
@@ -146,15 +146,15 @@ function TaskItem({ t, onToggle, onClick }: {
           <span style={{ flex: 1 }}>{t.title}</span>
           {recurring && <RecurIcon />}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
-          {t.time && (
+        {t.time && (
+          <div style={{ marginTop: 4 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: T.color.textMuted, fontSize: 12, fontWeight: 600 }}>
               <Icon.clock size={13} color={T.color.textMuted} />{t.time}
             </span>
-          )}
-          <Chip id={t.cat} />
-        </div>
+          </div>
+        )}
       </div>
+      <Chip id={t.cat} />
     </div>
   );
 }
@@ -197,7 +197,7 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
   onToggleTask: (id: string) => void;
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
-  onEditEvent: (ev: CalEvent) => void;
+  onEditEvent: (ev: CalEvent, date: string) => void;
   onToggleHabit: (habitId: string) => void;
   onAddHabit: (title: string) => void;
   onEditHabit: (id: string, title: string) => void;
@@ -221,7 +221,7 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
     !t.time && (t.today || (t.date && isToday(t.date, t.recurrence)))
   );
 
-  const todayEvents = events.filter(ev => isToday(ev.date, ev.recurrence));
+  const todayEvents = events.filter(ev => isToday(ev.date, ev.recurrence, ev.excludeDates));
   const timeline: TimelineEntry[] = [
     ...todayEvents.map(ev => ({ kind: 'event' as const, ev })),
     ...scheduledToday.map(t => ({ kind: 'task' as const, t })),
@@ -309,7 +309,7 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
         </div>
 
         {/* Greeting */}
-        <div style={{ fontFamily: T.fonts.heading, fontSize: 28, lineHeight: 1.1, marginBottom: 16, paddingInlineStart: 8 }}>
+        <div style={{ fontFamily: T.fonts.heading, fontWeight: 700, fontSize: 28, lineHeight: 1.1, marginBottom: 16, paddingInlineStart: 8 }}>
           {getGreeting()}{userName ? `, ${userName}!` : '!'}
         </div>
 

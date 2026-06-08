@@ -8,6 +8,7 @@ import { Check, Chip, AddRow, SectionHead, PageHeader } from '../components/atom
 import { Icon } from '../icons';
 
 const T = theme;
+const OVERDUE_COLOR = '#e05c5c';
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 
 function formatDate(dateStr: string): string {
@@ -24,20 +25,26 @@ function RecurIcon() {
   );
 }
 
-function TaskItem({ t, onToggle, onClick }: {
-  t: Task; onToggle: (id: string) => void; onClick: () => void;
+function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
+  t: Task;
+  onToggle: (id: string) => void;
+  onClick: () => void;
+  onDefer?: () => void;
+  overdue?: boolean;
 }) {
   const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-      background: T.color.surface, borderRadius: T.radius.tile,
-      boxShadow: T.cardShadow, transition: 'opacity .2s', opacity: t.done ? 0.55 : 1,
+      background: overdue ? '#fff8f8' : T.color.surface,
+      borderRadius: T.radius.tile, boxShadow: T.cardShadow,
+      borderInlineStart: overdue ? `3px solid ${OVERDUE_COLOR}` : undefined,
+      transition: 'opacity .2s', opacity: t.done ? 0.55 : 1,
       cursor: 'pointer',
     }}>
       <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat, cats)} />
+        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={overdue ? OVERDUE_COLOR : catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -48,25 +55,38 @@ function TaskItem({ t, onToggle, onClick }: {
           <span style={{ flex: 1 }}>{t.title}</span>
           {recurring && <RecurIcon />}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
-          {t.time && (
+        {t.time && (
+          <div style={{ marginTop: 4 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: T.color.textMuted, fontSize: 12, fontWeight: 600 }}>
               <Icon.clock size={13} color={T.color.textMuted} />{t.time}
             </span>
-          )}
-          <Chip id={t.cat} />
-        </div>
+          </div>
+        )}
       </div>
+      <Chip id={t.cat} />
+      {onDefer && !recurring && (
+        <button
+          onClick={e => { e.stopPropagation(); onDefer(); }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '4px 6px', display: 'flex', alignItems: 'center',
+            opacity: 0.4, WebkitTapHighlightColor: 'transparent', flexShrink: 0,
+          }}
+        >
+          <Icon.arrowR size={15} color={T.color.textMuted} />
+        </button>
+      )}
     </div>
   );
 }
 
-export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, onEditTask }: {
+export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, onEditTask, onDeferTask }: {
   tasks: Task[];
   onToggleTask: (id: string) => void;
   onAddTask: (title: string) => void;
   onAddLaterTask: (title: string) => void;
   onEditTask: (t: Task) => void;
+  onDeferTask: (id: string) => void;
 }) {
   const tStr = todayStr();
 
@@ -77,15 +97,16 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
     const later: Task[] = [];
 
     tasks.forEach(t => {
+      // Non-recurring past-date tasks → overdue (even if t.today is set)
+      if (t.date && t.date < tStr && (t.recurrence ?? 'once') === 'once') {
+        if (!t.done) overdue.push(t);
+        return;
+      }
       if (t.today || (t.date && isToday(t.date, t.recurrence))) {
         today.push(t);
         return;
       }
       if (t.date) {
-        if (t.date < tStr) {
-          if (!t.done) overdue.push(t);
-          return;
-        }
         if (!byDate[t.date]) byDate[t.date] = [];
         byDate[t.date].push(t);
         return;
@@ -122,7 +143,12 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
         <SectionHead sub={`${doneTodayCount}/${todayTasks.length}`}>היום</SectionHead>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {todayTasks.map(t => (
-            <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+            <TaskItem
+              key={t.id} t={t}
+              onToggle={onToggleTask}
+              onClick={() => onEditTask(t)}
+              onDefer={() => onDeferTask(t.id)}
+            />
           ))}
           {todayTasks.length === 0 && (
             <div style={{ textAlign: 'center', padding: '12px 0', color: T.color.textMuted, fontSize: 14 }}>
@@ -135,10 +161,10 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddLaterTask, on
         {overdueTasks.length > 0 && (
           <>
             <div style={{ height: 18 }} />
-            <SectionHead sub={`${overdueTasks.length}`}>בפיגור</SectionHead>
+            <SectionHead color={OVERDUE_COLOR} sub={`${overdueTasks.length}`}>בפיגור</SectionHead>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               {overdueTasks.map(t => (
-                <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+                <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} overdue />
               ))}
             </div>
           </>

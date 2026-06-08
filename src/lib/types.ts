@@ -64,6 +64,7 @@ export interface CalEvent {
   place?: string;
   reminder?: Reminder;
   recurrence?: Recurrence;
+  excludeDates?: string[]; // YYYY-MM-DD dates excluded from recurrence
   notes?: string;
 }
 
