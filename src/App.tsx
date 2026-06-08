@@ -147,6 +147,18 @@ export default function App() {
     });
   };
 
+  const quickAddTomorrowTask = (title: string) => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    saveTask({
+      id: 'nt' + Date.now(),
+      title, cat: 'personal', done: false,
+      time: null, today: false, type: 'general', recurrence: 'once',
+      date: dateStr,
+    });
+  };
+
   const deferTask = (id: string) => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -517,6 +529,7 @@ export default function App() {
             tasks={tasks}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
+            onAddTomorrowTask={quickAddTomorrowTask}
             onAddLaterTask={quickAddLaterTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onDeferTask={deferTask}

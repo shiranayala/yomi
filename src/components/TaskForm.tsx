@@ -11,17 +11,25 @@ import { Icon } from '../icons';
 
 const T = theme;
 
-type When = 'later' | 'today' | 'date';
+function tomorrowStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+type When = 'later' | 'today' | 'tomorrow' | 'date';
 
 const WHEN_OPTIONS: { value: When; label: string }[] = [
-  { value: 'later', label: 'להמשך' },
-  { value: 'today', label: 'היום'  },
-  { value: 'date',  label: 'תאריך' },
+  { value: 'later',    label: 'להמשך' },
+  { value: 'today',    label: 'היום'  },
+  { value: 'tomorrow', label: 'מחר'   },
+  { value: 'date',     label: 'תאריך' },
 ];
 
 function getInitialWhen(task?: Task): When {
   if (!task) return 'today';
   if (task.today) return 'today';
+  if (task.date === tomorrowStr()) return 'tomorrow';
   if (task.date) return 'date';
   return 'later';
 }
@@ -65,7 +73,7 @@ export function TaskForm({ initial, defaultDate, onSave, onDelete, onClose }: Pr
       time: hasTime ? time : null,
       today: when === 'today',
       type: hasTime ? 'scheduled' : 'general',
-      date: when === 'date' ? date : undefined,
+      date: when === 'date' ? date : when === 'tomorrow' ? tomorrowStr() : undefined,
       recurrence: when === 'date' ? recurrence : 'once',
       notes: notes.trim() || undefined,
       reminder: initial?.reminder,
@@ -82,7 +90,7 @@ export function TaskForm({ initial, defaultDate, onSave, onDelete, onClose }: Pr
         <Pills<When> options={WHEN_OPTIONS} value={when} onChange={setWhen} />
       </Field>
 
-      {when === 'today' && (
+      {(when === 'today' || when === 'tomorrow') && (
         <Field label="שעה (אופציונלי)">
           <TimeInput value={time} onChange={setTime} />
         </Field>
