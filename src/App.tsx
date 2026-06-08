@@ -343,7 +343,7 @@ export default function App() {
 
   const addHabit = (title: string) => {
     const habit: Habit = {
-      id: 'hb' + (++idc.current),
+      id: 'hb' + Date.now(),
       title,
       createdAt: new Date().toISOString().slice(0, 10),
     };
