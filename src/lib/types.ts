@@ -24,6 +24,7 @@ export interface Task {
   done: boolean;
   time: string | null;
   today: boolean;
+  todayDate?: string;   // YYYY-MM-DD — the day 'today' was set; used for daily rollover
   type?: TaskType;
   date?: string;        // YYYY-MM-DD — for scheduled tasks
   reminder?: Reminder;

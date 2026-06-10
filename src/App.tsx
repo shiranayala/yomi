@@ -19,6 +19,7 @@ import {
   type User,
 } from './lib/firebase';
 import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category } from './lib/types';
+import { todayStr } from './lib/recurrence';
 import { CategoriesCtx, DEFAULT_CATEGORIES } from './lib/CategoriesContext';
 import type { DateFormat } from './lib/dateFormat';
 
@@ -135,7 +136,7 @@ export default function App() {
     saveTask({
       id: 'nt' + (++idc.current),
       title, cat: 'personal', done: false,
-      time: null, today: true, type: 'general', recurrence: 'once',
+      time: null, today: true, todayDate: todayStr(), type: 'general', recurrence: 'once',
     });
   };
 
@@ -283,6 +284,32 @@ export default function App() {
   };
 
   // One-time cleanup of orphaned shopping items (items whose list was deleted)
+  // Daily rollover: stale "today" tasks → done ones deleted, pending ones → overdue
+  const taskRolloverDone = useRef(false);
+  useEffect(() => {
+    if (taskRolloverDone.current || !tasks.length) return;
+    taskRolloverDone.current = true;
+    const tStr = todayStr();
+    const yesterday = (() => {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    })();
+    tasks.forEach(t => {
+      if (!t.today) return;
+      const td = t.todayDate;
+      if (!td) {
+        // Legacy task with no stamp: done → delete, not done → treat as yesterday's
+        if (t.done) { deleteTask(t.id); }
+        else { saveTask({ ...t, today: false, date: yesterday }); }
+        return;
+      }
+      if (td < tStr) {
+        if (t.done) { deleteTask(t.id); }
+        else { saveTask({ ...t, today: false, date: td }); }
+      }
+    });
+  }, [tasks]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const shopCleanupDone = useRef(false);
   useEffect(() => {
     if (shopCleanupDone.current || !shoppingLists.length) return;
@@ -660,7 +687,10 @@ export default function App() {
           <TaskForm
             initial={form.kind === 'editTask' ? form.task : undefined}
             defaultDate={form.kind === 'addTask' ? form.date : undefined}
-            onSave={t => { saveTask(t); closeForm(); }}
+            onSave={t => {
+              saveTask(t.today ? { ...t, todayDate: todayStr() } : t);
+              closeForm();
+            }}
             onDelete={form.kind === 'editTask' ? (id => { deleteTask(id); closeForm(); }) : undefined}
             onClose={closeForm}
           />
