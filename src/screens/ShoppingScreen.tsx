@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { theme, softLine } from '../theme';
 import type { ShoppingItem, ShoppingList } from '../lib/types';
-import { Check, PageHeader } from '../components/atoms';
+import { Check, PageHeader, glassCard } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
 
 const LIST_COLORS = [
-  '#e05c5c', '#e8874a', '#d4a23f', '#50a77f',
-  '#5b8fc4', '#9c6ba8', '#c47ab5', '#6b8fa3',
+  '#d99090', '#e8a87c', '#d4bc8b', '#87c9a0',
+  '#8ba4d4', '#c89cd4', '#d4a18b', '#a3b8c9',
 ];
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
@@ -131,9 +131,9 @@ function AddItemRow({ onAdd }: { onAdd: (title: string) => void }) {
   const submit = () => { const t = v.trim(); if (t) { onAdd(t); setV(''); } };
   return (
     <div style={{
+      ...glassCard,
+      background: 'rgba(255,255,255,0.5)',
       display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px',
-      background: T.color.surface, borderRadius: T.radius.tile,
-      border: '1px dashed ' + softLine('0.25'),
     }}>
       <Icon.plus size={18} color={T.color.primary} />
       <input
@@ -144,8 +144,11 @@ function AddItemRow({ onAdd }: { onAdd: (title: string) => void }) {
       />
       {v.trim() && (
         <button onClick={submit} style={{
-          border: 'none', cursor: 'pointer', borderRadius: 99, padding: '5px 12px',
-          background: T.color.primary, color: T.color.onPrimary, fontSize: 13, fontWeight: 700,
+          border: 'none', cursor: 'pointer', borderRadius: 99, padding: '6px 14px',
+          background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+          color: T.color.onPrimary,
+          boxShadow: `0 4px 12px ${T.color.primary}55`,
+          fontSize: 13, fontWeight: 700,
         }}>הוסף</button>
       )}
     </div>
@@ -270,8 +273,8 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
       {creating && (
         <div style={{ padding: '0 18px 16px' }}>
           <div style={{
-            background: T.color.surface, borderRadius: T.radius.tile,
-            boxShadow: T.cardShadow, padding: '16px',
+            ...glassCard,
+            padding: '16px',
           }}>
             <input
               autoFocus
@@ -308,10 +311,12 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
       <div style={{ padding: '0 18px' }}>
         {shoppingLists.length === 0 && !creating && (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: T.color.textMuted, fontSize: 15 }}>
-            <div style={{ fontFamily: T.fonts.hand, fontSize: 28, marginBottom: 12 }}>אין רשימות עדיין</div>
+            <div style={{ fontFamily: T.fonts.heading, fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 12 }}>אין רשימות עדיין</div>
             <button onClick={handleStartCreate} style={{
               border: 'none', borderRadius: 99, padding: '12px 24px',
-              background: T.color.primary, color: T.color.onPrimary,
+              background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+              color: T.color.onPrimary,
+              boxShadow: `0 4px 14px ${T.color.primary}55`,
               fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
             }}>+ צרי רשימה ראשונה</button>
           </div>
@@ -337,8 +342,8 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
 
             {listItems.length > 0 && (
               <div style={{
-                background: T.color.surface, borderRadius: T.radius.tile,
-                boxShadow: T.cardShadow, overflow: 'hidden', marginBottom: 10,
+                ...glassCard,
+                overflow: 'hidden', marginBottom: 10,
                 borderInlineStart: `3px solid ${selectedList.color || T.color.primary}`,
               }}>
                 {listItems.map((s, i) => (

@@ -53,11 +53,15 @@ export function VerifyEmailScreen({ user, onVerified }: {
       maxWidth: 480, margin: '0 auto',
     }}>
       <div style={{
-        padding: '52px 24px 40px',
+        padding: '56px 24px 44px',
         background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
         color: '#fff', textAlign: 'center',
       }}>
-        <div style={{ fontFamily: T.fonts.hand, fontSize: 52, lineHeight: 1, marginBottom: 6 }}>יומי</div>
+        <img
+          src="/yomi-logo-stacked-white.svg"
+          alt="יומי"
+          style={{ height: 92, opacity: 0.96 }}
+        />
       </div>
 
       <div style={{
@@ -101,7 +105,9 @@ export function VerifyEmailScreen({ user, onVerified }: {
             width: '100%', border: 'none', borderRadius: 99, marginBottom: 12,
             padding: '14px 0', fontSize: 16, fontWeight: 700, cursor: 'pointer',
             fontFamily: T.fonts.body,
-            background: T.color.primary, color: T.color.onPrimary,
+            background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+            color: T.color.onPrimary,
+            boxShadow: `0 4px 14px ${T.color.primary}55`,
             opacity: checking ? 0.7 : 1,
           }}
         >

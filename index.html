@@ -19,11 +19,11 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#9c6ba8" />
+    <meta name="theme-color" content="#8b7bc8" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Gveret+Levin+AlefAlefAlef&family=Assistant:wght@700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #root {
@@ -31,11 +31,35 @@
         height: 100dvh;
       }
       body {
-        background: #f4eef6;
-        font-family: "Rubik", system-ui, sans-serif;
+        font-family: "Heebo", system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
         overflow: hidden;
+        color: #2a2438;
+        background:
+          radial-gradient(120% 80% at 30% 18%, #f5d4e8 0%, transparent 50%),
+          radial-gradient(110% 70% at 82% 50%, #d4e8f5 0%, transparent 50%),
+          radial-gradient(120% 80% at 50% 100%, #e8f5d4 0%, transparent 50%),
+          linear-gradient(180deg, #fdf5fa 0%, #f5e8f5 100%);
+        background-attachment: fixed;
+        position: relative;
       }
+      /* Drifting pastel blobs that breathe behind everything */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(360px 240px at 18% 28%, rgba(196,160,232,0.32), transparent 70%),
+          radial-gradient(300px 200px at 88% 72%, rgba(255,180,150,0.26), transparent 70%);
+        animation: yomi-drift 16s ease-in-out infinite alternate;
+        z-index: 0;
+        pointer-events: none;
+      }
+      @keyframes yomi-drift {
+        0%   { transform: translate(0,0) scale(1); }
+        100% { transform: translate(22px,-18px) scale(1.06); }
+      }
+      #root { position: relative; z-index: 1; }
       button { font-family: inherit; }
       input, textarea { font-family: inherit; }
       ::-webkit-scrollbar { display: none; }

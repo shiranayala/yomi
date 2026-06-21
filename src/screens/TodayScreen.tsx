@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { theme, catColor, softLine } from '../theme';
+import { theme, catColor } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
-import type { Task, CalEvent, Habit, HabitLog } from '../lib/types';
+import type { Task, CalEvent } from '../lib/types';
 import { isToday, todayStr } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
-import { HabitsSection } from '../components/HabitsSection';
 import { Icon } from '../icons';
 import { useWeather, type WeatherIconKey } from '../lib/useWeather';
 import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
@@ -34,26 +33,81 @@ type TimelineEntry =
   | { kind: 'event'; ev: CalEvent }
   | { kind: 'task';  t: Task };
 
+// Shared glass surface used by every card in the Today screen
+const glassCard: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.65)',
+  backdropFilter: 'blur(18px) saturate(140%)',
+  WebkitBackdropFilter: 'blur(18px) saturate(140%)',
+  borderRadius: T.radius.tile,
+  boxShadow:
+    '0 1px 0 rgba(255,255,255,0.65) inset, 0 4px 12px rgba(155,125,212,0.07), 0 12px 26px rgba(155,125,212,0.09)',
+  transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s',
+};
+
+// Gradient time block (start + optional end) — reused by both event & task cards
+function TimeBlock({ time, end }: { time: string; end?: string }) {
+  return (
+    <div style={{
+      flexShrink: 0, textAlign: 'center', minWidth: 50,
+      direction: 'ltr',
+    }}>
+      <div style={{
+        fontFamily: 'Inter, system-ui, sans-serif',
+        fontSize: end ? 16 : 18, fontWeight: 800, lineHeight: 1,
+        letterSpacing: '-0.3px',
+        background: `linear-gradient(120deg, ${T.color.primaryDeep} 0%, ${T.color.heroFrom} 100%)`,
+        WebkitBackgroundClip: 'text', backgroundClip: 'text',
+        WebkitTextFillColor: 'transparent', color: 'transparent',
+        fontVariantNumeric: 'tabular-nums',
+      }}>{time}</div>
+      {end && (
+        <div style={{
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontSize: 11, fontWeight: 600, color: T.color.textMuted,
+          marginTop: 3, fontVariantNumeric: 'tabular-nums',
+        }}>{end}</div>
+      )}
+    </div>
+  );
+}
+
+// Vertical colored pill that marks the category
+function CatPill({ color }: { color: string }) {
+  return (
+    <span style={{
+      width: 5, height: 36, borderRadius: 99,
+      background: color, flexShrink: 0,
+    }} />
+  );
+}
+
 function TimelineEventCard({ ev, onClick }: { ev: CalEvent; onClick: () => void }) {
   const cats = useCats();
   const c = catColor(ev.cat, cats);
   const recurring = ev.recurrence && ev.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
-      flex: 1, marginBottom: 12, padding: '11px 14px',
-      background: T.color.surface, borderRadius: T.radius.tile,
-      boxShadow: T.cardShadow, borderInlineStart: '3px solid ' + c,
-      cursor: 'pointer',
+      ...glassCard,
+      padding: '14px 16px', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: T.color.text, flex: 1 }}>{ev.title}</div>
-        {recurring && <RecurIcon />}
-      </div>
-      {ev.place && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, color: T.color.textMuted, fontSize: 12.5 }}>
-          <Icon.mapPin size={13} color={T.color.textMuted} />{ev.place}
+      {/* Time — appears on the RIGHT in RTL */}
+      <TimeBlock time={ev.time} end={ev.end} />
+      <CatPill color={c} />
+      {/* Title + place — appears on the LEFT in RTL */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.color.text, flex: 1, lineHeight: 1.25 }}>
+            {ev.title}
+          </div>
+          {recurring && <RecurIcon />}
         </div>
-      )}
+        {ev.place && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, color: T.color.textMuted, fontSize: 12 }}>
+            <Icon.mapPin size={12} color={T.color.textMuted} />{ev.place}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -66,18 +120,17 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
-      flex: 1, marginBottom: 12, padding: '10px 14px',
-      background: T.color.surface, borderRadius: T.radius.tile,
-      boxShadow: T.cardShadow, borderInlineStart: '3px solid ' + c,
-      cursor: 'pointer', opacity: t.done ? 0.55 : 1, transition: 'opacity .2s',
-      display: 'flex', alignItems: 'center', gap: 10,
+      ...glassCard,
+      padding: '13px 16px', cursor: 'pointer', opacity: t.done ? 0.55 : 1,
+      display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={c} />
-      </div>
-      <div style={{ flex: 1 }}>
+      {/* Time — appears on the RIGHT in RTL */}
+      {t.time && <TimeBlock time={t.time} />}
+      <CatPill color={c} />
+      {/* Title — appears in the middle, flex grows */}
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 15, fontWeight: 500, color: T.color.text,
+          fontSize: 15, fontWeight: 600, color: T.color.text, lineHeight: 1.3,
           textDecoration: t.done ? 'line-through' : 'none',
           textDecorationColor: T.color.textMuted,
           display: 'flex', alignItems: 'center', gap: 6,
@@ -86,32 +139,24 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
           {recurring && <RecurIcon />}
         </div>
       </div>
-      <Chip id={t.cat} />
+      {/* Check — appears on the LEFT in RTL */}
+      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
+        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={c} />
+      </div>
     </div>
   );
 }
 
-function TimelineItem({ entry, last, onToggleTask, onEditEvent, onEditTask }: {
-  entry: TimelineEntry; last: boolean;
+// Integrated timeline item — single glass card per entry, time inside on the
+// left (gradient), pill in middle, content on the right. No external column.
+function TimelineItem({ entry, onToggleTask, onEditEvent, onEditTask }: {
+  entry: TimelineEntry;
   onToggleTask: (id: string) => void;
   onEditEvent: (ev: CalEvent, date: string) => void;
   onEditTask: (t: Task) => void;
 }) {
-  const cats = useCats();
-  const time = entry.kind === 'event' ? entry.ev.time : (entry.t.time ?? '');
-  const end  = entry.kind === 'event' ? entry.ev.end  : undefined;
-  const c    = catColor(entry.kind === 'event' ? entry.ev.cat : entry.t.cat, cats);
-
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
-      <div style={{ width: 46, flexShrink: 0, textAlign: 'center', paddingTop: 2 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, fontVariantNumeric: 'tabular-nums' }}>{time}</div>
-        {end && <div style={{ fontSize: 11, color: T.color.textMuted, fontVariantNumeric: 'tabular-nums' }}>{end}</div>}
-      </div>
-      <div style={{ width: 14, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <span style={{ width: 11, height: 11, borderRadius: 99, background: c, marginTop: 4, boxShadow: '0 0 0 3px ' + c + '26' }} />
-        {!last && <span style={{ flex: 1, width: 2, background: softLine('0.18'), marginTop: 2 }} />}
-      </div>
+    <div style={{ marginBottom: 9 }}>
       {entry.kind === 'event'
         ? <TimelineEventCard ev={entry.ev} onClick={() => onEditEvent(entry.ev, todayStr())} />
         : <TimelineTaskCard  t={entry.t}  onToggle={onToggleTask} onClick={() => onEditTask(entry.t)} />
@@ -129,17 +174,16 @@ function TaskItem({ t, onToggle, onClick }: {
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
+      ...glassCard,
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-      background: T.color.surface, borderRadius: T.radius.tile,
-      boxShadow: T.cardShadow, opacity: t.done ? 0.55 : 1,
-      transition: 'opacity .2s', cursor: 'pointer',
+      opacity: t.done ? 0.55 : 1, cursor: 'pointer',
     }}>
       <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
         <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 15.5, fontWeight: 500, color: T.color.text, lineHeight: 1.35,
+          fontSize: 15, fontWeight: 600, color: T.color.text, lineHeight: 1.35,
           textDecoration: t.done ? 'line-through' : 'none', textDecorationColor: T.color.textMuted,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
@@ -175,10 +219,14 @@ function WeatherWidget({ temp, label, icon }: { temp: number; label: string; ico
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 7,
-      background: 'rgba(255,255,255,0.16)', borderRadius: 99, padding: '7px 13px',
-      fontSize: 13.5, fontWeight: 600,
+      background: 'rgba(255,255,255,0.75)',
+      backdropFilter: 'blur(14px) saturate(140%)',
+      WebkitBackdropFilter: 'blur(14px) saturate(140%)',
+      borderRadius: 99, padding: '8px 13px',
+      fontSize: 13, fontWeight: 700, color: T.color.primaryDeep,
+      boxShadow: `0 4px 14px ${T.color.primary}24`,
     }}>
-      {WEATHER_ICONS[icon]({ size: 16, color: T.color.onPrimary })}
+      {WEATHER_ICONS[icon]({ size: 15, color: T.color.primaryDeep })}
       {temp}° {label}
     </span>
   );
@@ -186,11 +234,9 @@ function WeatherWidget({ temp, label, icon }: { temp: number; label: string; ico
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onToggleHabit, onAddHabit, onEditHabit, onDeleteHabit, onOpenSettings, onSignOut }: {
+export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
-  habits: Habit[];
-  habitLogs: HabitLog[];
   userName: string;
   userEmail: string;
   dateFormat: DateFormat;
@@ -198,10 +244,6 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
   onAddTask: (title: string) => void;
   onEditTask: (t: Task) => void;
   onEditEvent: (ev: CalEvent, date: string) => void;
-  onToggleHabit: (habitId: string) => void;
-  onAddHabit: (title: string) => void;
-  onEditHabit: (id: string, title: string) => void;
-  onDeleteHabit: (id: string) => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
 }) {
@@ -233,105 +275,122 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
 
   return (
     <div>
-      {/* Hero */}
-      <div style={{
-        padding: '26px 18px 52px',
-        background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
-        color: T.color.onPrimary,
-      }}>
-        {/* Top row: profile+date (right) | logo (left) */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      {/* Hero — glass card on dreamy pastel background */}
+      <div style={{ padding: '16px 16px 8px' }}>
+        <div style={{
+          padding: '20px 20px 22px',
+          background: 'rgba(255,255,255,0.62)',
+          backdropFilter: 'blur(20px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+          borderRadius: 28,
+          boxShadow:
+            '0 1px 0 rgba(255,255,255,0.65) inset, 0 4px 14px rgba(155,125,212,0.10), 0 20px 48px rgba(155,125,212,0.12)',
+          color: T.color.text,
+        }}>
+          {/* Top row: profile+date (right) | logo (left) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
 
-          {/* Profile + date */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ position: 'relative' }}>
-              <button onClick={() => setMenuOpen(o => !o)} style={{
-                width: 34, height: 34, borderRadius: 99,
-                background: 'rgba(255,255,255,0.18)',
-                border: '1.5px solid rgba(255,255,255,0.35)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', WebkitTapHighlightColor: 'transparent', flexShrink: 0,
-              }}>
-                <Icon.user size={17} color="#fff" sw={1.8} />
-              </button>
+            {/* Profile + date */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => setMenuOpen(o => !o)} style={{
+                  width: 36, height: 36, borderRadius: 99,
+                  background: 'rgba(255,255,255,0.75)',
+                  backdropFilter: 'blur(14px) saturate(140%)',
+                  WebkitBackdropFilter: 'blur(14px) saturate(140%)',
+                  border: 'none',
+                  boxShadow: `0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 12px ${T.color.primary}24`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', WebkitTapHighlightColor: 'transparent', flexShrink: 0,
+                }}>
+                  <Icon.user size={17} color={T.color.primaryDeep} sw={1.9} />
+                </button>
 
-              {menuOpen && (
-                <>
-                  <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
-                  <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', insetInlineStart: 0, zIndex: 11,
-                    background: '#fff', borderRadius: 16, padding: '16px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                    minWidth: 200, direction: 'rtl', color: T.color.text,
-                  }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{userName || 'משתמשת'}</div>
-                    <div style={{ fontSize: 12.5, color: T.color.textMuted, marginBottom: 14, marginTop: 2 }}>{userEmail}</div>
-                    <div style={{ height: 1, background: T.color.line, marginBottom: 10 }} />
-                    <button onClick={() => { setMenuOpen(false); onOpenSettings(); }} style={{
-                      width: '100%', border: 'none', background: 'none',
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      cursor: 'pointer', padding: '7px 0',
-                      color: T.color.text, fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
+                {menuOpen && (
+                  <>
+                    <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+                    <div style={{
+                      position: 'absolute', top: 'calc(100% + 8px)', insetInlineStart: 0, zIndex: 11,
+                      background: '#fff', borderRadius: 18, padding: '16px',
+                      boxShadow: `0 8px 32px ${T.color.primary}33`,
+                      minWidth: 200, direction: 'rtl', color: T.color.text,
                     }}>
-                      <Icon.settings size={15} color={T.color.text} />הגדרות
-                    </button>
-                    <button onClick={() => { setMenuOpen(false); onSignOut(); }} style={{
-                      width: '100%', border: 'none', background: 'none',
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      cursor: 'pointer', padding: '7px 0',
-                      color: '#e05c5c', fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
-                    }}>
-                      <Icon.logout size={15} color="#e05c5c" />התנתקות
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>
-                {dayName} · {primaryDate}
+                      <div style={{ fontWeight: 800, fontSize: 15 }}>{userName || 'משתמשת'}</div>
+                      <div style={{ fontSize: 12.5, color: T.color.textMuted, marginBottom: 14, marginTop: 2 }}>{userEmail}</div>
+                      <div style={{ height: 1, background: T.color.line, marginBottom: 10 }} />
+                      <button onClick={() => { setMenuOpen(false); onOpenSettings(); }} style={{
+                        width: '100%', border: 'none', background: 'none',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        cursor: 'pointer', padding: '7px 0',
+                        color: T.color.text, fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
+                      }}>
+                        <Icon.settings size={15} color={T.color.text} />הגדרות
+                      </button>
+                      <button onClick={() => { setMenuOpen(false); onSignOut(); }} style={{
+                        width: '100%', border: 'none', background: 'none',
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        cursor: 'pointer', padding: '7px 0',
+                        color: '#e05c5c', fontSize: 14, fontWeight: 600, fontFamily: T.fonts.body,
+                      }}>
+                        <Icon.logout size={15} color="#e05c5c" />התנתקות
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
-              {secondaryDate && (
-                <div style={{ fontSize: 11, fontWeight: 500, opacity: 0.65, marginTop: 1 }}>
-                  {secondaryDate}
+
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: T.color.primary, letterSpacing: '0.2px' }}>
+                  {dayName} · {primaryDate}
                 </div>
-              )}
+                {secondaryDate && (
+                  <div style={{ fontSize: 11, fontWeight: 500, color: T.color.textMuted, marginTop: 1 }}>
+                    {secondaryDate}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Logo */}
+            <img
+              src="/yomi-logo-horizontal-purple.svg"
+              alt="יומי"
+              style={{ height: 40, opacity: 0.95, flexShrink: 0 }}
+            />
           </div>
 
-          {/* Logo */}
-          <img
-            src="/yomi-logo-horizontal-white.svg"
-            alt="יומי"
-            style={{ height: 44, opacity: 0.92, flexShrink: 0 }}
-          />
-        </div>
+          {/* Greeting — gradient text */}
+          <div style={{
+            fontFamily: T.fonts.heading, fontWeight: 800,
+            fontSize: 30, lineHeight: 1.05, letterSpacing: '-0.6px',
+            background: `linear-gradient(120deg, ${T.color.primaryDeep} 0%, ${T.color.heroFrom} 100%)`,
+            WebkitBackgroundClip: 'text', backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent', color: 'transparent',
+            marginBottom: 14, paddingInlineStart: 2,
+          }}>
+            {getGreeting()}{userName ? `, ${userName}!` : '!'}
+          </div>
 
-        {/* Greeting */}
-        <div style={{ fontFamily: T.fonts.heading, fontWeight: 700, fontSize: 28, lineHeight: 1.1, marginBottom: 16, paddingInlineStart: 8 }}>
-          {getGreeting()}{userName ? `, ${userName}!` : '!'}
+          {/* Weather */}
+          {weather && (
+            <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
+          )}
         </div>
-
-        {/* Weather */}
-        {weather && (
-          <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
-        )}
       </div>
 
-      {/* Floating content card */}
-      <div style={{ padding: '0 18px 100px', marginTop: -42 }}>
-        <div style={{ background: T.color.bg, borderRadius: '26px 26px 0 0', paddingTop: 20 }}>
+      {/* Content — no overlap, no negative margin */}
+      <div style={{ padding: '8px 18px 100px' }}>
+        <div>
 
           <SectionHead sub={timeline.length ? `${timeline.length} פריטים` : ''}>
             היומן שלך
           </SectionHead>
           {timeline.length > 0 ? (
             <div>
-              {timeline.map((entry, i) => (
+              {timeline.map(entry => (
                 <TimelineItem
                   key={entry.kind === 'event' ? entry.ev.id : entry.t.id}
-                  entry={entry} last={i === timeline.length - 1}
+                  entry={entry}
                   onToggleTask={onToggleTask}
                   onEditEvent={onEditEvent}
                   onEditTask={onEditTask}
@@ -360,17 +419,6 @@ export function TodayScreen({ tasks, events, habits, habitLogs, userName, userEm
             ))}
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
           </div>
-
-          <div style={{ height: 10 }} />
-
-          <HabitsSection
-            habits={habits}
-            logs={habitLogs}
-            onToggle={onToggleHabit}
-            onAdd={onAddHabit}
-            onEdit={onEditHabit}
-            onDelete={onDeleteHabit}
-          />
 
         </div>
       </div>

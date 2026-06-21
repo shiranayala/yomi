@@ -10,6 +10,7 @@ import { TasksScreen } from './screens/TasksScreen';
 import { ShoppingScreen } from './screens/ShoppingScreen';
 import { NotesScreen } from './screens/NotesScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
+import { RoutineScreen } from './screens/RoutineScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
@@ -18,9 +19,10 @@ import {
   onAuthStateChanged, authSignOut, getRedirectResult,
   type User,
 } from './lib/firebase';
-import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category } from './lib/types';
+import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category, Routine, RoutineLog } from './lib/types';
 import { todayStr } from './lib/recurrence';
-import { CategoriesCtx, DEFAULT_CATEGORIES } from './lib/CategoriesContext';
+import { weekStartStr, todayStrLocal } from './lib/routineIcons';
+import { CategoriesCtx, DEFAULT_CATEGORIES, pastelForCategoryId } from './lib/CategoriesContext';
 import type { DateFormat } from './lib/dateFormat';
 
 const T = theme;
@@ -69,6 +71,8 @@ export default function App() {
   const [habitLogs, setHabitLogs]   = useState<HabitLog[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [userCategories, setUserCategories] = useState<Category[]>([]);
+  const [routines, setRoutines]         = useState<Routine[]>([]);
+  const [routineLogs, setRoutineLogs]   = useState<RoutineLog[]>([]);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const [pendingEventOp, setPendingEventOp] = useState<PendingEventOp | null>(null);
   const [fabOpen, setFabOpen]   = useState(false);
@@ -110,6 +114,8 @@ export default function App() {
     load<HabitLog>('habitLogs', setHabitLogs);
     load<ShoppingList>('shoppingLists', setShoppingLists);
     load<Category>('categories', setUserCategories);
+    load<Routine>('routines', setRoutines);
+    load<RoutineLog>('routineLogs', setRoutineLogs);
   }, [uid]);
 
   // ── Task operations ───────────────────────────────────────────────
@@ -404,9 +410,19 @@ export default function App() {
   };
 
   // ── Category operations ───────────────────────────────────────────
+  // Force the Aurora pastel palette on every category — builtin uses its
+  // canonical pastel, custom categories get a deterministic pastel from the
+  // shared 8-color palette. Saved labels are preserved.
   const allCategories = useMemo(() => {
-    const merged = { ...DEFAULT_CATEGORIES };
-    userCategories.forEach(cat => { merged[cat.id] = cat; });
+    const merged: Record<string, Category> = { ...DEFAULT_CATEGORIES };
+    userCategories.forEach(cat => {
+      const def = DEFAULT_CATEGORIES[cat.id];
+      if (def) {
+        merged[cat.id] = { ...def, label: cat.label || def.label };
+      } else {
+        merged[cat.id] = { ...cat, color: pastelForCategoryId(cat.id) };
+      }
+    });
     return merged;
   }, [userCategories]);
 
@@ -438,6 +454,78 @@ export default function App() {
       setEvents(evs => evs.map(ev => ev.cat === id ? { ...ev, cat: fallback } : ev));
       eventsToFix.forEach(ev => fsUpdate('events', ev.id, { cat: fallback }));
     }
+  };
+
+  // ── Routine operations ────────────────────────────────────────────
+  const createRoutine = (r: Omit<Routine, 'id' | 'createdAt'>) => {
+    const routine: Routine = {
+      ...r,
+      id: 'rt' + Date.now() + Math.floor(Math.random() * 100),
+      createdAt: todayStrLocal(),
+    };
+    setRoutines(rs => [...rs, routine]);
+    fsSet('routines', routine.id, routine);
+  };
+
+  const deleteRoutine = (id: string) => {
+    setRoutines(rs => rs.filter(r => r.id !== id));
+    fsDel('routines', id);
+    // Also drop its logs
+    const orphanLogs = routineLogs.filter(l => l.routineId === id);
+    if (orphanLogs.length) {
+      setRoutineLogs(ls => ls.filter(l => l.routineId !== id));
+      orphanLogs.forEach(l => fsDel('routineLogs', l.id));
+    }
+  };
+
+  /** Increment (or decrement) the counter for a routine on today/this-week.
+   *  delta = +1 to tap, -1 to undo. Daily uses today's date; weekly uses week start. */
+  const logRoutineTap = (routineId: string, delta: number) => {
+    const r = routines.find(x => x.id === routineId);
+    if (!r) return;
+    const periodDate = r.kind === 'daily' ? todayStrLocal() : weekStartStr();
+    const logId = `${routineId}_${periodDate}`;
+    const existing = routineLogs.find(l => l.id === logId);
+    const nextCount = Math.max(0, (existing?.count ?? 0) + delta);
+    if (nextCount === 0 && existing) {
+      setRoutineLogs(ls => ls.filter(l => l.id !== logId));
+      fsDel('routineLogs', logId);
+      return;
+    }
+    const log: RoutineLog = {
+      id: logId,
+      routineId,
+      date: periodDate,
+      count: nextCount,
+    };
+    if (existing) {
+      setRoutineLogs(ls => ls.map(l => l.id === logId ? log : l));
+    } else {
+      setRoutineLogs(ls => [...ls, log]);
+    }
+    fsSet('routineLogs', logId, log);
+  };
+
+  /** Create a calendar event prefilled from a weekly routine. */
+  const scheduleWeeklyRoutine = (routine: Routine, date: string, time: string) => {
+    let end: string | undefined;
+    if (routine.duration) {
+      const [hh, mm] = time.split(':').map(Number);
+      const total = hh * 60 + mm + routine.duration;
+      const eh = Math.floor(total / 60) % 24;
+      const em = total % 60;
+      end = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+    }
+    const ev: CalEvent = {
+      id: 'ev' + Date.now(),
+      title: routine.title,
+      date, time,
+      ...(end ? { end } : {}),
+      cat: 'personal',
+      recurrence: 'once',
+      routineId: routine.id,
+    };
+    saveEvent(ev);
   };
 
   // ── Sign out ──────────────────────────────────────────────────────
@@ -527,7 +615,7 @@ export default function App() {
     <CategoriesCtx.Provider value={allCategories}>
     <div dir="rtl" style={{
       height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      background: T.color.bg, color: T.color.text,
+      background: 'transparent', color: T.color.text,
       fontFamily: T.fonts.body, WebkitFontSmoothing: 'antialiased',
       maxWidth: 480, margin: '0 auto', position: 'relative',
     }}>
@@ -535,7 +623,6 @@ export default function App() {
         {tab === 'today' && (
           <TodayScreen
             tasks={tasks} events={events}
-            habits={habits} habitLogs={habitLogs}
             userName={firstName}
             userEmail={userEmail}
             dateFormat={dateFormat}
@@ -543,12 +630,19 @@ export default function App() {
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
-            onToggleHabit={toggleHabit}
-            onAddHabit={addHabit}
-            onEditHabit={editHabit}
-            onDeleteHabit={deleteHabit}
             onOpenSettings={() => setShowSettings(true)}
             onSignOut={handleSignOut}
+          />
+        )}
+        {tab === 'routine' && (
+          <RoutineScreen
+            routines={routines}
+            routineLogs={routineLogs}
+            events={events}
+            onCreateRoutine={createRoutine}
+            onDeleteRoutine={deleteRoutine}
+            onLogTap={logRoutineTap}
+            onScheduleWeekly={scheduleWeeklyRoutine}
           />
         )}
         {tab === 'tasks' && (
@@ -606,13 +700,17 @@ export default function App() {
           {fabOpen && (
             <div style={{
               position: 'absolute', bottom: 150, insetInlineEnd: 18, zIndex: 39,
-              background: '#fff', borderRadius: 18, padding: '8px 0',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.18)', minWidth: 160,
+              background: 'rgba(255,255,255,0.85)',
+              backdropFilter: 'blur(20px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+              borderRadius: 20, padding: '8px 0',
+              boxShadow: `0 1px 0 rgba(255,255,255,0.7) inset, 0 12px 32px ${T.color.primary}33`,
+              minWidth: 168,
               display: 'flex', flexDirection: 'column',
             }}>
               <button onClick={() => { setFabOpen(false); setForm({ kind: 'addTask' }); }} style={{
                 border: 'none', background: 'none', cursor: 'pointer',
-                padding: '12px 20px', fontSize: 15, fontWeight: 600,
+                padding: '12px 20px', fontSize: 15, fontWeight: 700,
                 fontFamily: T.fonts.body, color: T.color.text, textAlign: 'right',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
@@ -621,7 +719,7 @@ export default function App() {
               <div style={{ height: 1, background: T.color.line, margin: '0 12px' }} />
               <button onClick={() => { setFabOpen(false); setForm({ kind: 'addEvent' }); }} style={{
                 border: 'none', background: 'none', cursor: 'pointer',
-                padding: '12px 20px', fontSize: 15, fontWeight: 600,
+                padding: '12px 20px', fontSize: 15, fontWeight: 700,
                 fontFamily: T.fonts.body, color: T.color.text, textAlign: 'right',
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
@@ -632,14 +730,16 @@ export default function App() {
           <button
             onClick={() => setFabOpen(o => !o)}
             style={{
-              position: 'absolute', bottom: 82, insetInlineEnd: 18, zIndex: 40,
-              width: 56, height: 56, borderRadius: 99,
-              background: T.color.primary, border: 'none', cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(156,107,168,0.45)',
+              position: 'absolute', bottom: 90, insetInlineEnd: 18, zIndex: 40,
+              width: 58, height: 58, borderRadius: 99,
+              background: `linear-gradient(135deg, ${T.color.primary} 0%, ${T.color.heroFrom} 100%)`,
+              border: 'none', cursor: 'pointer',
+              boxShadow:
+                `0 1px 0 rgba(255,255,255,0.4) inset, 0 4px 12px ${T.color.primary}55, 0 14px 32px ${T.color.primary}33`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, color: '#fff', fontWeight: 300,
-              transform: fabOpen ? 'rotate(45deg)' : 'none',
-              transition: 'transform .2s',
+              fontSize: 30, color: '#fff', fontWeight: 300,
+              transform: fabOpen ? 'rotate(45deg) scale(0.95)' : 'rotate(0) scale(1)',
+              transition: 'transform .25s cubic-bezier(.34,1.56,.64,1)',
               WebkitTapHighlightColor: 'transparent',
             }}
           >
@@ -739,7 +839,8 @@ export default function App() {
               }}>רק האירוע הזה</button>
               <button onClick={applyEventScopeSeries} style={{
                 border: 'none', borderRadius: 99, padding: '13px 0',
-                background: T.color.primary, color: '#fff',
+                background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+                color: '#fff', boxShadow: `0 4px 14px ${T.color.primary}55`,
                 fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
               }}>{pendingEventOp.kind === 'save' ? 'עדכן את כל הסדרה' : 'מחק את כל הסדרה'}</button>
               <button onClick={() => setPendingEventOp(null)} style={{

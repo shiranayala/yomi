@@ -42,4 +42,6 @@ export const Icon = {
   cloudSnow:      (p: IconProps) => svg(<><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M8 15h.01M8 19h.01M12 17h.01M12 21h.01M16 15h.01M16 19h.01"/></>, p),
   fog:            (p: IconProps) => svg(<><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 17H7M17 21H9"/></>, p),
   cloudLightning: (p: IconProps) => svg(<><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></>, p),
+  sparkle: (p: IconProps) => svg(<><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 4l.6 1.7L21 6.3l-1.4.6L19 8.6l-.6-1.7L17 6.3l1.4-.6z" opacity="0.7"/></>, p),
+  target: (p: IconProps) => svg(<><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/></>, p),
 };

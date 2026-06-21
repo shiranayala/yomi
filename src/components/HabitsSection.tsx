@@ -3,6 +3,7 @@ import { theme, softLine } from '../theme';
 import { Icon } from '../icons';
 import type { Habit, HabitLog } from '../lib/types';
 import { calcStreak } from '../lib/habitStreak';
+import { glassCard } from './atoms';
 
 const T = theme;
 
@@ -11,16 +12,22 @@ function HabitRow({ habit, done, streak, onToggle }: {
 }) {
   return (
     <div style={{
+      ...glassCard,
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-      background: T.color.surface, borderRadius: T.radius.tile,
-      boxShadow: T.cardShadow, opacity: done ? 0.65 : 1, transition: 'opacity .2s',
+      opacity: done ? 0.65 : 1,
     }}>
       <button onClick={onToggle} style={{
         width: 26, height: 26, borderRadius: 99, flexShrink: 0, cursor: 'pointer',
-        border: '2px solid ' + (done ? T.color.primary : softLine('0.3')),
-        background: done ? T.color.primary : 'transparent',
+        border: done ? 'none' : '2px solid ' + softLine('0.32'),
+        background: done
+          ? `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`
+          : 'transparent',
+        boxShadow: done ? `0 4px 10px ${T.color.primary}55` : 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 0, transition: 'all .18s', WebkitTapHighlightColor: 'transparent',
+        padding: 0,
+        transition: 'all .22s cubic-bezier(.34,1.56,.64,1)',
+        WebkitTapHighlightColor: 'transparent',
+        transform: done ? 'scale(1.04)' : 'scale(1)',
       }}>
         {done && <Icon.check size={13} color={T.color.onPrimary} sw={3} />}
       </button>
@@ -93,7 +100,10 @@ function ManagerOverlay({ habits, onClose, onAdd, onEdit, onDelete }: {
         }} />
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ fontFamily: T.fonts.hand, fontSize: 22, color: T.color.text }}>
+          <div style={{
+            fontFamily: T.fonts.heading, fontSize: 20, fontWeight: 800,
+            color: T.color.text, letterSpacing: '-0.4px',
+          }}>
             ניהול הרגלים
           </div>
           <button onClick={onClose} style={{
@@ -121,8 +131,10 @@ function ManagerOverlay({ habits, onClose, onAdd, onEdit, onDelete }: {
           />
           {newTitle.trim() && (
             <button onClick={submitNew} style={{
-              border: 'none', cursor: 'pointer', borderRadius: 99, padding: '5px 12px',
-              background: T.color.primary, color: T.color.onPrimary,
+              border: 'none', cursor: 'pointer', borderRadius: 99, padding: '6px 14px',
+              background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+              color: T.color.onPrimary,
+              boxShadow: `0 4px 12px ${T.color.primary}55`,
               fontSize: 13, fontWeight: 700, fontFamily: T.fonts.body,
             }}>הוסף</button>
           )}

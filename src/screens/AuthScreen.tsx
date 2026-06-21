@@ -108,12 +108,18 @@ export function AuthScreen() {
     }}>
       {/* Header gradient */}
       <div style={{
-        padding: '52px 24px 40px',
+        padding: '56px 24px 44px',
         background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
         color: '#fff', textAlign: 'center',
       }}>
-        <div style={{ fontFamily: T.fonts.hand, fontSize: 52, lineHeight: 1, marginBottom: 6 }}>יומי</div>
-        <div style={{ fontSize: 15, opacity: 0.88 }}>המתכנן היומי שלך</div>
+        <img
+          src="/yomi-logo-stacked-white.svg"
+          alt="יומי"
+          style={{ height: 92, marginBottom: 10, opacity: 0.96 }}
+        />
+        <div style={{ fontSize: 14.5, opacity: 0.88, fontWeight: 500, letterSpacing: '0.2px' }}>
+          המתכנן היומי שלך
+        </div>
       </div>
 
       {/* Card */}
@@ -205,7 +211,10 @@ export function AuthScreen() {
             width: '100%', border: 'none', borderRadius: 99, marginTop: 20,
             padding: '14px 0', fontSize: 16, fontWeight: 700, cursor: valid ? 'pointer' : 'default',
             fontFamily: T.fonts.body, transition: 'all .18s',
-            background: valid && !loading ? T.color.primary : T.color.surfaceAlt,
+            background: valid && !loading
+              ? `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`
+              : T.color.surfaceAlt,
+            boxShadow: valid && !loading ? `0 4px 14px ${T.color.primary}55` : 'none',
             color: valid && !loading ? T.color.onPrimary : T.color.textMuted,
           }}
         >

@@ -4,7 +4,7 @@ import { useCats } from '../lib/CategoriesContext';
 import type { Task } from '../lib/types';
 import { isToday, isItemOnDate, todayStr } from '../lib/recurrence';
 import { monthNames } from '../lib/data';
-import { Check, Chip, AddRow, SectionHead, PageHeader } from '../components/atoms';
+import { Check, Chip, AddRow, SectionHead, PageHeader, glassCard } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
@@ -44,12 +44,13 @@ function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
     <div onClick={onClick} style={{
+      ...glassCard,
+      ...(overdue ? {
+        background: 'rgba(255, 235, 235, 0.7)',
+        borderInlineStart: `3px solid ${OVERDUE_COLOR}`,
+      } : null),
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-      background: overdue ? '#fff8f8' : T.color.surface,
-      borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-      borderInlineStart: overdue ? `3px solid ${OVERDUE_COLOR}` : undefined,
-      transition: 'opacity .2s', opacity: t.done ? 0.55 : 1,
-      cursor: 'pointer',
+      opacity: t.done ? 0.55 : 1, cursor: 'pointer',
     }}>
       <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
         <Check checked={t.done} onToggle={() => onToggle(t.id)} color={overdue ? OVERDUE_COLOR : catColor(t.cat, cats)} />

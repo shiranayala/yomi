@@ -10,7 +10,7 @@ import {
   type DateFormat,
 } from '../lib/dateFormat';
 import { isItemOnDate } from '../lib/recurrence';
-import { CatDot, NavBtn, PageHeader } from '../components/atoms';
+import { CatDot, NavBtn, PageHeader, glassCard, glassCardLarge } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
@@ -124,8 +124,8 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
 
       {/* Calendar grid */}
       <div style={{
-        background: T.color.surface, borderRadius: T.radius.card,
-        boxShadow: T.cardShadow, padding: '14px 12px 16px',
+        ...glassCardLarge,
+        padding: '14px 12px 16px',
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 6 }}>
           {weekdaysShort.map((d, i) => (
@@ -197,11 +197,12 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
             <button
               onClick={() => setAddMenuOpen(o => !o)}
               style={{
-                width: 30, height: 30, borderRadius: 99,
-                background: T.color.primary, border: 'none', cursor: 'pointer',
+                width: 32, height: 32, borderRadius: 99,
+                background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+                border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 20, color: '#fff', fontWeight: 300,
-                boxShadow: `0 2px 8px ${T.color.primary}55`,
+                boxShadow: `0 1px 0 rgba(255,255,255,0.4) inset, 0 4px 12px ${T.color.primary}55`,
                 WebkitTapHighlightColor: 'transparent',
               }}
             >+</button>
@@ -241,13 +242,22 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
                 const recurring = ev.recurrence && ev.recurrence !== 'once';
                 return (
                   <div key={ev.id} onClick={() => onEditEvent(ev, selDateStr)} style={{
+                    ...glassCard,
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px', background: T.color.surface,
-                    borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-                    borderInlineStart: '3px solid ' + catColor(ev.cat, cats), cursor: 'pointer',
+                    padding: '12px 14px', cursor: 'pointer',
                   }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{ev.time}</span>
-                    <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text }}>{ev.title}</span>
+                    <span style={{
+                      width: 5, height: 26, borderRadius: 99,
+                      background: catColor(ev.cat, cats), flexShrink: 0,
+                    }} />
+                    <span style={{
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                      fontSize: 13.5, fontWeight: 800, width: 44, fontVariantNumeric: 'tabular-nums',
+                      background: `linear-gradient(120deg, ${T.color.primaryDeep}, ${T.color.heroFrom})`,
+                      WebkitBackgroundClip: 'text', backgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent', color: 'transparent',
+                    }}>{ev.time}</span>
+                    <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700, color: T.color.text }}>{ev.title}</span>
                     {recurring && <RecurIcon />}
                     <CatDot id={ev.cat} size={9} />
                   </div>
@@ -257,14 +267,23 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
                 const recurring = t.recurrence && t.recurrence !== 'once';
                 return (
                   <div key={t.id} onClick={() => onEditTask(t)} style={{
+                    ...glassCard,
                     display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px', background: T.color.surface,
-                    borderRadius: T.radius.tile, boxShadow: T.cardShadow,
-                    borderInlineStart: '3px solid ' + catColor(t.cat, cats),
+                    padding: '12px 14px',
                     opacity: t.done ? 0.55 : 1, cursor: 'pointer',
                   }}>
-                    {t.time && <span style={{ fontSize: 13.5, fontWeight: 700, color: T.color.text, width: 44, fontVariantNumeric: 'tabular-nums' }}>{t.time}</span>}
-                    <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: T.color.text,
+                    <span style={{
+                      width: 5, height: 26, borderRadius: 99,
+                      background: catColor(t.cat, cats), flexShrink: 0,
+                    }} />
+                    {t.time && <span style={{
+                      fontFamily: 'Inter, system-ui, sans-serif',
+                      fontSize: 13.5, fontWeight: 800, width: 44, fontVariantNumeric: 'tabular-nums',
+                      background: `linear-gradient(120deg, ${T.color.primaryDeep}, ${T.color.heroFrom})`,
+                      WebkitBackgroundClip: 'text', backgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent', color: 'transparent',
+                    }}>{t.time}</span>}
+                    <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700, color: T.color.text,
                       textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</span>
                     {recurring && <RecurIcon />}
                     <CatDot id={t.cat} size={9} />
@@ -275,10 +294,10 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
           </div>
         ) : (
           <div style={{
+            ...glassCardLarge,
             padding: '28px 16px', textAlign: 'center',
-            background: T.color.surface, borderRadius: T.radius.card, boxShadow: T.cardShadow,
           }}>
-            <div style={{ fontFamily: T.fonts.hand, fontSize: 22, color: T.color.text, marginBottom: 4 }}>יום פנוי לגמרי</div>
+            <div style={{ fontFamily: T.fonts.heading, fontSize: 18, fontWeight: 800, letterSpacing: '-0.4px', color: T.color.text, marginBottom: 4 }}>יום פנוי לגמרי</div>
             <div style={{ fontSize: 13.5, color: T.color.textMuted }}>אין פריטים מתוכננים ליום הזה</div>
           </div>
         )}

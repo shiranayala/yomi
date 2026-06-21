@@ -15,9 +15,12 @@ function NoteCard({ n, tags, onEdit }: { n: Note; tags: Tag[]; onEdit: (n: Note)
     <div
       onClick={() => onEdit(n)}
       style={{
-        background: style.bg, border: '1px solid ' + style.edge,
-        borderRadius: T.radius.tile, padding: '13px 14px', marginBottom: 12,
+        background: style.bg,
+        borderRadius: T.radius.tile, padding: '14px 14px', marginBottom: 12,
         cursor: 'pointer', position: 'relative',
+        boxShadow:
+          '0 1px 0 rgba(255,255,255,0.5) inset, 0 4px 12px rgba(155,125,212,0.06), 0 12px 26px rgba(155,125,212,0.08)',
+        transition: 'transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s',
       }}
     >
       {n.pinned && (
@@ -27,7 +30,8 @@ function NoteCard({ n, tags, onEdit }: { n: Note; tags: Tag[]; onEdit: (n: Note)
       )}
       {n.title && (
         <div style={{
-          fontFamily: T.fonts.hand, fontSize: 19, color: style.text, lineHeight: 1.2,
+          fontFamily: T.fonts.heading, fontSize: 15, fontWeight: 800,
+          letterSpacing: '-0.3px', color: style.text, lineHeight: 1.25,
           marginBottom: n.body ? 6 : (noteTags.length ? 8 : 0),
           paddingInlineEnd: n.pinned ? 20 : 0,
         }}>
@@ -143,8 +147,8 @@ export function NotesScreen({ notes, tags, onAdd, onEdit }: {
         {visible.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: T.color.textMuted, fontSize: 15 }}>
             {filterTagId
-              ? <div style={{ fontFamily: T.fonts.hand, fontSize: 24, marginBottom: 8 }}>אין פתקים בתגית זו</div>
-              : <><div style={{ fontFamily: T.fonts.hand, fontSize: 28, marginBottom: 8 }}>אין פתקים עדיין</div>לחצי על + כדי להוסיף</>
+              ? <div style={{ fontFamily: T.fonts.heading, fontSize: 18, fontWeight: 800, letterSpacing: '-0.4px', marginBottom: 8 }}>אין פתקים בתגית זו</div>
+              : <><div style={{ fontFamily: T.fonts.heading, fontSize: 22, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 8 }}>אין פתקים עדיין</div>לחצי על + כדי להוסיף</>
             }
           </div>
         ) : (

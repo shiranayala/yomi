@@ -67,6 +67,8 @@ export interface CalEvent {
   recurrence?: Recurrence;
   excludeDates?: string[]; // YYYY-MM-DD dates excluded from recurrence
   notes?: string;
+  routineId?: string;  // links a scheduled weekly goal back to its source routine
+  done?: boolean;      // for routine-linked events: marks the goal as completed
 }
 
 export interface AgendaItem {
@@ -85,4 +87,29 @@ export interface HabitLog {
   id: string;       // `${habitId}_${date}`
   habitId: string;
   date: string;     // YYYY-MM-DD
+}
+
+/** Daily routine: tap-to-count actions like water, supplements, face exercises.
+ *  Weekly goal: scheduled actions like gym 3×/wk, beach 1×/wk. */
+export type RoutineKind = 'daily' | 'weekly';
+
+export interface Routine {
+  id: string;
+  title: string;
+  iconKey: string;   // → ROUTINE_ICONS[iconKey]
+  colorKey: string;  // → ROUTINE_COLORS[colorKey]
+  kind: RoutineKind;
+  target: number;    // daily: count per day (e.g., 10 cups); weekly: occurrences per week
+  duration?: number; // weekly only: default event length in minutes
+  createdAt: string; // YYYY-MM-DD
+}
+
+/** Each tap on a daily block, or each completion of a weekly goal, writes one log row.
+ *  date for daily = YYYY-MM-DD of that day; date for weekly = YYYY-MM-DD of Sunday (week start). */
+export interface RoutineLog {
+  id: string;        // `${routineId}_${date}_${seq}` or `${routineId}_${date}`
+  routineId: string;
+  date: string;      // YYYY-MM-DD
+  count: number;     // increments by 1 per tap; aggregated as total for that period
+  eventId?: string;  // optional: links a weekly completion back to a calendar event
 }

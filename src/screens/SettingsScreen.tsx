@@ -96,7 +96,9 @@ function CatRow({ cat, onSave, onDelete }: {
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={save} style={{
             border: 'none', borderRadius: 99, padding: '7px 18px',
-            background: T.color.primary, color: T.color.onPrimary,
+            background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+            color: T.color.onPrimary,
+            boxShadow: `0 4px 12px ${T.color.primary}55`,
             fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
           }}>שמור</button>
           <button onClick={() => { setEditing(false); setLabel(cat.label); setColor(cat.color); }} style={{

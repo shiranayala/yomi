@@ -3,3 +3,12 @@ dist
 .env
 .env.local
 .DS_Store
+
+# Local-only design mockups (kept in folder for reference, not deployed)
+design-comparison.html
+routine-blocks-comparison.html
+yomi-aurora-full.html
+
+# Old logo backups (renamed locally, not for production)
+public/yomi-logo-horizontal-purple22.png
+public/yomi-logo-horizontal-purple3.svg
