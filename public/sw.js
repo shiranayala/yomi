@@ -1,4 +1,4 @@
-const CACHE = 'yomi-v1';
+const CACHE = 'yomi-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
