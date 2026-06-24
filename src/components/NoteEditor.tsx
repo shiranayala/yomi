@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { theme } from '../theme';
 import type { Note, Tag } from '../lib/types';
-import { colorForKey, noteColorStyle, NEUTRAL_STYLE } from '../lib/tagColors';
+import { colorForKey, noteColorStyle } from '../lib/tagColors';
 import { Icon } from '../icons';
 import { ConfirmDialog } from './ConfirmDialog';
 import { TagPanel } from './TagPanel';
@@ -26,10 +26,37 @@ export function NoteEditor({ note, allTags, onSave, onSaveTag, onDeleteTag, onDe
   const [menuOpen, setMenuOpen]         = useState(false);
   const [tagsOpen, setTagsOpen]         = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const timerRef    = useRef<ReturnType<typeof setTimeout>>();
-  const firstRender = useRef(true);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const timerRef     = useRef<ReturnType<typeof setTimeout>>();
+  const firstRender  = useRef(true);
+
+  // Undo/redo history
+  const historyRef    = useRef<{ title: string; body: string }[]>([
+    { title: note.title, body: note.body ?? '' },
+  ]);
+  const historyIdx    = useRef(0);
+  const isUndoRedo    = useRef(false);
+  const historyTimer  = useRef<ReturnType<typeof setTimeout>>();
 
   const colorStyle = noteColorStyle(localTags, allTags);
+
+  // Push to undo history after typing pause
+  useEffect(() => {
+    if (isUndoRedo.current) { isUndoRedo.current = false; return; }
+    clearTimeout(historyTimer.current);
+    historyTimer.current = setTimeout(() => {
+      const cur = historyRef.current[historyIdx.current];
+      if (cur.title === title && cur.body === body) return;
+      historyRef.current = historyRef.current.slice(0, historyIdx.current + 1);
+      historyRef.current.push({ title, body });
+      historyIdx.current = historyRef.current.length - 1;
+      setCanUndo(historyIdx.current > 0);
+      setCanRedo(false);
+    }, 600);
+    return () => clearTimeout(historyTimer.current);
+  }, [title, body]); // eslint-disable-line
 
   // Auto-save debounced
   useEffect(() => {
@@ -41,6 +68,28 @@ export function NoteEditor({ note, allTags, onSave, onSaveTag, onDeleteTag, onDe
     }, 700);
     return () => clearTimeout(timerRef.current);
   }, [title, body, pinned, localTags]); // eslint-disable-line
+
+  function undo() {
+    if (historyIdx.current <= 0) return;
+    historyIdx.current--;
+    const prev = historyRef.current[historyIdx.current];
+    isUndoRedo.current = true;
+    setTitle(prev.title);
+    setBody(prev.body);
+    setCanUndo(historyIdx.current > 0);
+    setCanRedo(historyIdx.current < historyRef.current.length - 1);
+  }
+
+  function redo() {
+    if (historyIdx.current >= historyRef.current.length - 1) return;
+    historyIdx.current++;
+    const next = historyRef.current[historyIdx.current];
+    isUndoRedo.current = true;
+    setTitle(next.title);
+    setBody(next.body);
+    setCanUndo(historyIdx.current > 0);
+    setCanRedo(historyIdx.current < historyRef.current.length - 1);
+  }
 
   function handleClose() {
     clearTimeout(timerRef.current);
@@ -109,7 +158,6 @@ export function NoteEditor({ note, allTags, onSave, onSaveTag, onDeleteTag, onDe
                   color: T.color.text, fontSize: 14, fontFamily: T.fonts.body, fontWeight: 500,
                   WebkitTapHighlightColor: 'transparent',
                 }}>
-                  {/* tag icon inline */}
                   <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={T.color.textMuted} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
                     <line x1="7" y1="7" x2="7.01" y2="7"/>
@@ -202,11 +250,56 @@ export function NoteEditor({ note, allTags, onSave, onSaveTag, onDeleteTag, onDe
         style={{
           flex: 1, background: 'transparent', border: 'none', outline: 'none',
           fontSize: 16.5, color: colorStyle.text, lineHeight: 1.75,
-          fontFamily: T.fonts.body, padding: '10px 20px 40px',
+          fontFamily: T.fonts.body, padding: '10px 20px 16px',
           resize: 'none', width: '100%', boxSizing: 'border-box',
           direction: 'rtl',
         }}
       />
+
+      {/* Undo/Redo toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '6px 12px 10px', flexShrink: 0,
+        borderTop: `1px solid ${colorStyle.text}18`,
+      }}>
+        <button
+          onClick={undo}
+          disabled={!canUndo}
+          title="בטל (Ctrl+Z)"
+          style={{
+            background: 'none', border: 'none', cursor: canUndo ? 'pointer' : 'default',
+            padding: '7px 10px', borderRadius: 10,
+            opacity: canUndo ? 1 : 0.28,
+            WebkitTapHighlightColor: 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none"
+            stroke={colorStyle.text} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 14 4 9l5-5"/>
+            <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>
+          </svg>
+        </button>
+
+        <button
+          onClick={redo}
+          disabled={!canRedo}
+          title="חזור (Ctrl+Y)"
+          style={{
+            background: 'none', border: 'none', cursor: canRedo ? 'pointer' : 'default',
+            padding: '7px 10px', borderRadius: 10,
+            opacity: canRedo ? 1 : 0.28,
+            WebkitTapHighlightColor: 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none"
+            stroke={colorStyle.text} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 14l5-5-5-5"/>
+            <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>
+          </svg>
+        </button>
+      </div>
 
       {/* Tag panel overlay */}
       {tagsOpen && (

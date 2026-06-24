@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { theme, catColor } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
 import type { Task, CalEvent } from '../lib/types';
-import { isToday, todayStr } from '../lib/recurrence';
+import { isToday, isTomorrow, todayStr } from '../lib/recurrence';
 import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
 import { Icon } from '../icons';
 import { useWeather, type WeatherIconKey } from '../lib/useWeather';
@@ -203,6 +203,61 @@ function TaskItem({ t, onToggle, onClick }: {
   );
 }
 
+// ── Tomorrow preview cards ────────────────────────────────────────
+
+function TomorrowEventCard({ ev, onClick }: { ev: CalEvent; onClick: () => void }) {
+  const cats = useCats();
+  const c = catColor(ev.cat, cats);
+  const recurring = ev.recurrence && ev.recurrence !== 'once';
+  return (
+    <div onClick={onClick} style={{
+      ...glassCard,
+      padding: '12px 16px', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', gap: 12,
+      opacity: 0.82,
+    }}>
+      <TimeBlock time={ev.time} end={ev.end} />
+      <CatPill color={c} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: T.color.text, flex: 1, lineHeight: 1.25 }}>
+            {ev.title}
+          </div>
+          {recurring && <RecurIcon />}
+        </div>
+        {ev.place && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, color: T.color.textMuted, fontSize: 12 }}>
+            <Icon.mapPin size={12} color={T.color.textMuted} />{ev.place}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TomorrowTaskCard({ t, onClick }: { t: Task; onClick: () => void }) {
+  const cats = useCats();
+  const c = catColor(t.cat, cats);
+  const recurring = t.recurrence && t.recurrence !== 'once';
+  return (
+    <div onClick={onClick} style={{
+      ...glassCard,
+      padding: '12px 14px', cursor: 'pointer', opacity: 0.82,
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      {t.time && <TimeBlock time={t.time} />}
+      <CatPill color={c} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: T.color.text, lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ flex: 1 }}>{t.title}</span>
+          {recurring && <RecurIcon />}
+        </div>
+      </div>
+      <Chip id={t.cat} />
+    </div>
+  );
+}
+
 // ── Weather ───────────────────────────────────────────────────────
 
 const WEATHER_ICONS: Record<WeatherIconKey, (p: { size: number; color: string }) => React.ReactNode> = {
@@ -234,7 +289,7 @@ function WeatherWidget({ temp, label, icon }: { temp: number; label: string; ico
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onSignOut }: {
+export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
   userName: string;
@@ -245,6 +300,7 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
   onEditTask: (t: Task) => void;
   onEditEvent: (ev: CalEvent, date: string) => void;
   onOpenSettings: () => void;
+  onOpenWeather: () => void;
   onSignOut: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -264,6 +320,27 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
   );
 
   const todayEvents = events.filter(ev => isToday(ev.date, ev.recurrence, ev.excludeDates));
+
+  // Tomorrow
+  const tomorrowTasks = tasks.filter(t =>
+    !t.today && t.date && isTomorrow(t.date, t.recurrence)
+  );
+  const tomorrowEvents = events.filter(ev => isTomorrow(ev.date, ev.recurrence, ev.excludeDates));
+  const tomorrowTimeline: TimelineEntry[] = [
+    ...tomorrowEvents.map(ev => ({ kind: 'event' as const, ev })),
+    ...tomorrowTasks.filter(t => t.time).map(t => ({ kind: 'task' as const, t })),
+  ].sort((a, b) => {
+    const ta = a.kind === 'event' ? a.ev.time : (a.t.time ?? '');
+    const tb = b.kind === 'event' ? b.ev.time : (b.t.time ?? '');
+    return ta.localeCompare(tb);
+  });
+  const tomorrowGeneralTasks = tomorrowTasks.filter(t => !t.time);
+
+  const tmrw = new Date();
+  tmrw.setDate(tmrw.getDate() + 1);
+  const tomorrowDayName = `יום ${DAY_NAMES[tmrw.getDay()]}`;
+  const hasTomorrow = tomorrowTimeline.length > 0 || tomorrowGeneralTasks.length > 0;
+
   const timeline: TimelineEntry[] = [
     ...todayEvents.map(ev => ({ kind: 'event' as const, ev })),
     ...scheduledToday.map(t => ({ kind: 'task' as const, t })),
@@ -371,9 +448,18 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
             {getGreeting()}{userName ? `, ${userName}!` : '!'}
           </div>
 
-          {/* Weather */}
+          {/* Weather — tappable to open detail screen */}
           {weather && (
-            <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
+            <button
+              onClick={onOpenWeather}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                WebkitTapHighlightColor: 'transparent',
+                display: 'inline-flex', alignItems: 'center',
+              }}
+            >
+              <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
+            </button>
           )}
         </div>
       </div>
@@ -419,6 +505,56 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
             ))}
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
           </div>
+
+          {/* Tomorrow reminder */}
+          {hasTomorrow && (
+            <>
+              <div style={{ height: 18 }} />
+              <div style={{
+                borderRadius: T.radius.tile,
+                background: 'rgba(255,255,255,0.50)',
+                backdropFilter: 'blur(16px) saturate(130%)',
+                WebkitBackdropFilter: 'blur(16px) saturate(130%)',
+                boxShadow: '0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 16px rgba(155,125,212,0.08)',
+                overflow: 'hidden',
+              }}>
+                {/* Header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '14px 16px 10px',
+                  borderBottom: `1px solid ${T.color.line}`,
+                }}>
+                  <Icon.calendar size={16} color={T.color.primary} sw={1.8} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: T.color.primaryDeep }}>
+                      תזכורת לאירועי מחר
+                    </div>
+                    <div style={{ fontSize: 11.5, color: T.color.textMuted, fontWeight: 500, marginTop: 1 }}>
+                      {tomorrowDayName}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 11.5, fontWeight: 700, color: T.color.primary,
+                    background: `${T.color.primary}18`, borderRadius: 99, padding: '3px 9px',
+                  }}>
+                    {tomorrowTimeline.length + tomorrowGeneralTasks.length} פריטים
+                  </span>
+                </div>
+
+                {/* Items */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px 12px' }}>
+                  {tomorrowTimeline.map(entry =>
+                    entry.kind === 'event'
+                      ? <TomorrowEventCard key={entry.ev.id} ev={entry.ev} onClick={() => onEditEvent(entry.ev, todayStr())} />
+                      : <TomorrowTaskCard  key={entry.t.id}  t={entry.t}  onClick={() => onEditTask(entry.t)} />
+                  )}
+                  {tomorrowGeneralTasks.map(t => (
+                    <TomorrowTaskCard key={t.id} t={t} onClick={() => onEditTask(t)} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
         </div>
       </div>

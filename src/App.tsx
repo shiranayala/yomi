@@ -14,6 +14,7 @@ import { RoutineScreen } from './screens/RoutineScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { WeatherScreen } from './screens/WeatherScreen';
 import {
   db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
   onAuthStateChanged, authSignOut, getRedirectResult,
@@ -47,6 +48,8 @@ export default function App() {
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
   const [reloadCount, setReloadCount] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [showWeather, setShowWeather]   = useState(false);
+
   const [dateFormat, setDateFormat] = useState<DateFormat>(
     () => (localStorage.getItem('dateFormat') as DateFormat) ?? 'gregorian'
   );
@@ -77,7 +80,7 @@ export default function App() {
   const [pendingEventOp, setPendingEventOp] = useState<PendingEventOp | null>(null);
   const [fabOpen, setFabOpen]   = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const idc = useRef(300);
+  const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
   const uid = authUser?.uid ?? null;
 
@@ -140,7 +143,7 @@ export default function App() {
 
   const quickAddTask = (title: string) => {
     saveTask({
-      id: 'nt' + (++idc.current),
+      id: 'nt' + genId(),
       title, cat: 'personal', done: false,
       time: null, today: true, todayDate: todayStr(), type: 'general', recurrence: 'once',
     });
@@ -148,7 +151,7 @@ export default function App() {
 
   const quickAddLaterTask = (title: string) => {
     saveTask({
-      id: 'nt' + (++idc.current),
+      id: 'nt' + genId(),
       title, cat: 'personal', done: false,
       time: null, today: false, type: 'general', recurrence: 'once',
     });
@@ -159,7 +162,7 @@ export default function App() {
     d.setDate(d.getDate() + 1);
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     saveTask({
-      id: 'nt' + Date.now(),
+      id: 'nt' + genId(),
       title, cat: 'personal', done: false,
       time: null, today: false, type: 'general', recurrence: 'once',
       date: dateStr,
@@ -259,13 +262,13 @@ export default function App() {
   };
 
   const addShop = (title: string, listId: string) => {
-    const item: ShoppingItem = { id: 'ns' + (++idc.current), title, done: false, aisle: '', listId };
+    const item: ShoppingItem = { id: 'ns' + genId(), title, done: false, aisle: '', listId };
     setShopping(ss => [...ss, item]);
     fsSet('shopping', item.id, item);
   };
 
   const addShopList = (title: string, color: string): string => {
-    const list: ShoppingList = { id: 'sl' + (++idc.current), title, color };
+    const list: ShoppingList = { id: 'sl' + genId(), title, color };
     setShoppingLists(ls => [...ls, list]);
     fsSet('shoppingLists', list.id, list);
     return list.id;
@@ -338,11 +341,10 @@ export default function App() {
 
   const openNewNote = () => {
     const newNote: Note = {
-      id: 'nn' + (++idc.current),
+      id: 'nn' + genId(),
       title: '', body: '', tone: 'plain', pinned: false,
     };
-    setNotes(ns => [newNote, ...ns]);
-    fsSet('notes', newNote.id, newNote);
+    saveNote(newNote);
     setEditingNote(newNote);
   };
 
@@ -435,7 +437,7 @@ export default function App() {
   };
 
   const addCategory = (label: string, color: string) => {
-    const cat: Category = { id: 'cat' + (++idc.current), label, color };
+    const cat: Category = { id: 'cat' + genId(), label, color };
     setUserCategories(cs => [...cs, cat]);
     fsSet('categories', cat.id, cat);
   };
@@ -631,6 +633,7 @@ export default function App() {
             onEditTask={t => setForm({ kind: 'editTask', task: t })}
             onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
             onOpenSettings={() => setShowSettings(true)}
+            onOpenWeather={() => setShowWeather(true)}
             onSignOut={handleSignOut}
           />
         )}
@@ -690,6 +693,12 @@ export default function App() {
       </div>
 
       <TabBar tab={tab} setTab={setTab} />
+
+      {showWeather && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 50, overflowY: 'auto', background: 'transparent' }}>
+          <WeatherScreen onClose={() => setShowWeather(false)} />
+        </div>
+      )}
 
       {/* FAB */}
       {(tab === 'today' || tab === 'tasks') && (
