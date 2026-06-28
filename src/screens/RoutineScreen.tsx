@@ -77,7 +77,7 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
           overflow: 'hidden',
           WebkitTapHighlightColor: 'transparent',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 5, padding: '10px 6px 28px',
+          gap: 3, padding: '8px 5px 36px',
         }}
       >
         <span style={{
@@ -89,56 +89,53 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
           <span key={popping} style={{
             position: 'absolute', top: 6, insetInlineEnd: 6,
             fontFamily: 'Inter, sans-serif',
-            fontSize: 15, fontWeight: 800, color: '#fff',
+            fontSize: 13, fontWeight: 800, color: '#fff',
             textShadow: '0 2px 4px rgba(0,0,0,0.18)',
             animation: 'routinePop 0.8s ease-out forwards',
             pointerEvents: 'none',
           }}>+1</span>
         )}
         <div style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))' }}>
-          <Icon_ size={28} sw={2.2} />
+          <Icon_ size={22} sw={2.2} />
         </div>
         <div style={{
-          fontSize: 12, fontWeight: 800, color: '#fff', textAlign: 'center',
-          textShadow: '0 1px 2px rgba(0,0,0,0.08)', letterSpacing: '-0.2px',
-          lineHeight: 1.2, paddingInline: 4,
+          fontSize: 10.5, fontWeight: 800, color: '#fff', textAlign: 'center',
+          textShadow: '0 1px 2px rgba(0,0,0,0.08)', letterSpacing: '-0.1px',
+          lineHeight: 1.2, paddingInline: 3,
         }}>
           {routine.title}
         </div>
       </button>
 
-      {/* Bottom: big ✓ when done, dots when in progress */}
-      {done ? (
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '0 0 7px', pointerEvents: 'none',
-        }}>
-          <span style={{
-            width: 26, height: 26, borderRadius: 99,
-            background: 'rgba(255,255,255,0.95)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.14)',
+      {/* Bottom: ✓ checkmark bubbles for each slot */}
+      {(() => {
+        const sz  = routine.target <= 5 ? 15 : 11;
+        const gap = routine.target <= 5 ? 4  : 2;
+        const checkColor = done ? '#7a7a88' : ic.solid;
+        return (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            display: 'flex', flexWrap: 'wrap',
+            alignItems: 'center', justifyContent: 'center',
+            gap, padding: '0 5px 7px', pointerEvents: 'none',
           }}>
-            <Icon.check size={13} color="#7a7a88" sw={3} />
-          </span>
-        </div>
-      ) : (
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          padding: '0 8px 8px', pointerEvents: 'none',
-        }}>
-          {Array.from({ length: routine.target }).map((_, i) => (
-            <span key={i} style={{
-              width: i < count ? 14 : 6, height: 4, borderRadius: 99,
-              background: i < count ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.30)',
-              transition: 'width .25s, background .25s',
-              flexShrink: 0,
-            }} />
-          ))}
-        </div>
-      )}
+            {Array.from({ length: routine.target }).map((_, i) => {
+              const filled = i < count;
+              return (
+                <span key={i} style={{
+                  width: sz, height: sz, borderRadius: '50%', flexShrink: 0,
+                  background: filled ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.22)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: filled ? '0 1px 3px rgba(0,0,0,0.14)' : 'none',
+                  transition: 'background .2s',
+                }}>
+                  {filled && <Icon.check size={sz <= 11 ? 6 : 8} color={checkColor} sw={3.5} />}
+                </span>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Minus button — bottom-left corner, visible when count > 0 and not done */}
       {count > 0 && !done && (
@@ -146,9 +143,9 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
           onClick={e => { e.stopPropagation(); onMinus(); }}
           style={{
             position: 'absolute', bottom: 5, insetInlineStart: 5,
-            width: 22, height: 22, borderRadius: 99, border: 'none',
+            width: 20, height: 20, borderRadius: 99, border: 'none',
             background: 'rgba(0,0,0,0.22)', color: '#fff',
-            cursor: 'pointer', fontSize: 16, fontWeight: 700, lineHeight: 1,
+            cursor: 'pointer', fontSize: 15, fontWeight: 700, lineHeight: 1,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             WebkitTapHighlightColor: 'transparent',
             boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
@@ -182,6 +179,8 @@ function WeeklyCard({ routine, count, onSchedule }: {
         : '0 1px 0 rgba(255,255,255,0.5) inset, 0 6px 18px rgba(155,125,212,0.12), 0 16px 36px rgba(155,125,212,0.12)',
       overflow: 'hidden',
       transition: 'background .35s',
+      height: '100%', boxSizing: 'border-box',
+      display: 'flex', flexDirection: 'column',
     }}>
       <span style={{
         position: 'absolute', top: -20, right: -20, width: 80, height: 80,
@@ -213,7 +212,7 @@ function WeeklyCard({ routine, count, onSchedule }: {
           </span>
         )}
       </div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 14, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 14, marginBottom: 14, flex: 1, alignItems: 'center' }}>
         {Array.from({ length: routine.target }).map((_, i) => (
           <span key={i} style={{
             flex: 1, height: 8, borderRadius: 99,
@@ -235,6 +234,7 @@ function WeeklyCard({ routine, count, onSchedule }: {
           fontFamily: T.fonts.body,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           WebkitTapHighlightColor: 'transparent',
+          flexShrink: 0,
         }}
       >
         <Icon.plus size={13} color={done ? '#7a7a88' : ic.solid} sw={2.5} /> תזמני
@@ -455,7 +455,7 @@ function AddDailyModal({ onClose, onCreate }: {
           </div>
         </div>
 
-        <Stepper value={target} onChange={setTarget} />
+        <Stepper value={target} onChange={setTarget} max={10} />
 
         <div style={{
           textAlign: 'center', fontSize: 13, color: T.color.textMuted,
@@ -541,7 +541,7 @@ function AddDailyModal({ onClose, onCreate }: {
 
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: T.color.textMuted, paddingInlineStart: 4, display: 'block', textAlign: 'center', marginBottom: 10 }}>כמה פעמים ביום</label>
-          <Stepper value={cTarget} onChange={setCTarget} />
+          <Stepper value={cTarget} onChange={setCTarget} max={10} />
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
@@ -1048,7 +1048,7 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
           marginBottom: 14,
         }}>
           {weeklyRoutines.map(r => (
-            <div key={r.id} style={{ position: 'relative' }}>
+            <div key={r.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
               <WeeklyCard
                 routine={r}
                 count={weeklyCount(r, events)}
@@ -1075,7 +1075,7 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
               cursor: 'pointer', color: T.color.primary,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
               transition: 'all .2s', WebkitTapHighlightColor: 'transparent',
-              minHeight: 140,
+              width: '100%', minHeight: 120,
             }}
           >
             <Icon.plus size={30} color={T.color.primary} sw={2.2} />
