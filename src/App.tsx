@@ -613,6 +613,21 @@ export default function App() {
   const firstName = displayName.split(' ')[0];
   const userEmail = auth?.currentUser?.email ?? authUser.email ?? '';
 
+  if (showWeather) {
+    return (
+      <CategoriesCtx.Provider value={allCategories}>
+      <div dir="rtl" style={{
+        height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        background: 'transparent', color: T.color.text,
+        fontFamily: T.fonts.body, WebkitFontSmoothing: 'antialiased',
+        maxWidth: 480, margin: '0 auto', position: 'relative',
+      }}>
+        <WeatherScreen onClose={() => setShowWeather(false)} />
+      </div>
+      </CategoriesCtx.Provider>
+    );
+  }
+
   return (
     <CategoriesCtx.Provider value={allCategories}>
     <div dir="rtl" style={{
@@ -693,12 +708,6 @@ export default function App() {
       </div>
 
       <TabBar tab={tab} setTab={setTab} />
-
-      {showWeather && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 50, overflowY: 'auto', background: 'transparent' }}>
-          <WeatherScreen onClose={() => setShowWeather(false)} />
-        </div>
-      )}
 
       {/* FAB */}
       {(tab === 'today' || tab === 'tasks') && (

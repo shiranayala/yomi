@@ -24,7 +24,7 @@ function dailyCount(routineId: string, logs: RoutineLog[]): number {
     .reduce((s, l) => s + l.count, 0);
 }
 
-function weeklyCount(routine: Routine, logs: RoutineLog[], events: CalEvent[]): number {
+function weeklyCount(routine: Routine, events: CalEvent[]): number {
   const week = weekStartStr();
   const weekEnd = (() => {
     const [y, m, d] = week.split('-').map(Number);
@@ -32,14 +32,12 @@ function weeklyCount(routine: Routine, logs: RoutineLog[], events: CalEvent[]): 
     end.setDate(end.getDate() + 7);
     return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
   })();
-  const fromLogs = logs
-    .filter(l => l.routineId === routine.id && l.date >= week && l.date < weekEnd)
-    .reduce((s, l) => s + l.count, 0);
-  const fromEvents = events
-    .filter(e => e.routineId === routine.id && e.done && e.date >= week && e.date < weekEnd)
+  return events
+    .filter(e => e.routineId === routine.id && e.date >= week && e.date < weekEnd)
     .length;
-  return fromLogs + fromEvents;
 }
+
+const DONE_GRADIENT = 'linear-gradient(135deg, #9e9ea8 0%, #bdbdc7 100%)';
 
 // ── Daily routine block ──────────────────────────────────────────────
 
@@ -67,17 +65,19 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
         onClick={handleTap}
         style={{
           position: 'absolute', inset: 0,
-          background: ic.gradient,
+          background: done ? DONE_GRADIENT : ic.gradient,
           borderRadius: 18,
           cursor: done ? 'default' : 'pointer',
           border: 'none', color: '#fff',
-          boxShadow: '0 1px 0 rgba(255,255,255,0.5) inset, 0 4px 14px rgba(155,125,212,0.12), 0 10px 24px rgba(155,125,212,0.10)',
+          boxShadow: done
+            ? '0 1px 0 rgba(255,255,255,0.4) inset, 0 4px 10px rgba(0,0,0,0.08)'
+            : '0 1px 0 rgba(255,255,255,0.5) inset, 0 4px 14px rgba(155,125,212,0.12), 0 10px 24px rgba(155,125,212,0.10)',
           transform: pulsing ? 'scale(0.94)' : 'scale(1)',
-          transition: 'transform .22s cubic-bezier(.34,1.56,.64,1)',
+          transition: 'transform .22s cubic-bezier(.34,1.56,.64,1), background .35s',
           overflow: 'hidden',
           WebkitTapHighlightColor: 'transparent',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          gap: 7, padding: '12px 6px 26px',
+          gap: 5, padding: '10px 6px 28px',
         }}
       >
         <span style={{
@@ -85,17 +85,6 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
           background: 'radial-gradient(circle, rgba(255,255,255,0.5), transparent 70%)',
           pointerEvents: 'none',
         }} />
-        {done && (
-          <span style={{
-            position: 'absolute', top: 7, insetInlineStart: 7,
-            width: 20, height: 20, borderRadius: 99,
-            background: 'rgba(255,255,255,0.95)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-          }}>
-            <Icon.check size={11} color={ic.solid} sw={3} />
-          </span>
-        )}
         {popping > 0 && (
           <span key={popping} style={{
             position: 'absolute', top: 6, insetInlineEnd: 6,
@@ -107,10 +96,10 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
           }}>+1</span>
         )}
         <div style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))' }}>
-          <Icon_ size={36} sw={2.2} />
+          <Icon_ size={28} sw={2.2} />
         </div>
         <div style={{
-          fontSize: 13, fontWeight: 800, color: '#fff', textAlign: 'center',
+          fontSize: 12, fontWeight: 800, color: '#fff', textAlign: 'center',
           textShadow: '0 1px 2px rgba(0,0,0,0.08)', letterSpacing: '-0.2px',
           lineHeight: 1.2, paddingInline: 4,
         }}>
@@ -118,24 +107,41 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
         </div>
       </button>
 
-      {/* Count + progress dots at bottom */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-        padding: '0 8px 7px', pointerEvents: 'none',
-      }}>
-        {Array.from({ length: routine.target }).map((_, i) => (
-          <span key={i} style={{
-            width: i < count ? 14 : 6, height: 4, borderRadius: 99,
-            background: i < count ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.30)',
-            transition: 'width .25s, background .25s',
-            flexShrink: 0,
-          }} />
-        ))}
-      </div>
+      {/* Bottom: big ✓ when done, dots when in progress */}
+      {done ? (
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '0 0 7px', pointerEvents: 'none',
+        }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 99,
+            background: 'rgba(255,255,255,0.95)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.14)',
+          }}>
+            <Icon.check size={13} color="#7a7a88" sw={3} />
+          </span>
+        </div>
+      ) : (
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+          padding: '0 8px 8px', pointerEvents: 'none',
+        }}>
+          {Array.from({ length: routine.target }).map((_, i) => (
+            <span key={i} style={{
+              width: i < count ? 14 : 6, height: 4, borderRadius: 99,
+              background: i < count ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.30)',
+              transition: 'width .25s, background .25s',
+              flexShrink: 0,
+            }} />
+          ))}
+        </div>
+      )}
 
-      {/* Minus button — bottom-left corner, visible when count > 0 */}
-      {count > 0 && (
+      {/* Minus button — bottom-left corner, visible when count > 0 and not done */}
+      {count > 0 && !done && (
         <button
           onClick={e => { e.stopPropagation(); onMinus(); }}
           style={{
@@ -156,12 +162,10 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
 
 // ── Weekly routine card ──────────────────────────────────────────────
 
-function WeeklyCard({ routine, count, onSchedule, onMark, onUnmark }: {
+function WeeklyCard({ routine, count, onSchedule }: {
   routine: Routine;
   count: number;
   onSchedule: () => void;
-  onMark: () => void;
-  onUnmark: () => void;
 }) {
   const ic = getRoutineIcon(routine.iconKey);
   const Icon_ = ic.icon;
@@ -169,13 +173,15 @@ function WeeklyCard({ routine, count, onSchedule, onMark, onUnmark }: {
   return (
     <div style={{
       position: 'relative',
-      background: ic.gradient,
+      background: done ? DONE_GRADIENT : ic.gradient,
       borderRadius: 22,
       padding: '20px 14px 16px',
       color: '#fff',
-      boxShadow:
-        '0 1px 0 rgba(255,255,255,0.5) inset, 0 6px 18px rgba(155,125,212,0.12), 0 16px 36px rgba(155,125,212,0.12)',
+      boxShadow: done
+        ? '0 1px 0 rgba(255,255,255,0.4) inset, 0 4px 10px rgba(0,0,0,0.08)'
+        : '0 1px 0 rgba(255,255,255,0.5) inset, 0 6px 18px rgba(155,125,212,0.12), 0 16px 36px rgba(155,125,212,0.12)',
       overflow: 'hidden',
+      transition: 'background .35s',
     }}>
       <span style={{
         position: 'absolute', top: -20, right: -20, width: 80, height: 80,
@@ -193,9 +199,19 @@ function WeeklyCard({ routine, count, onSchedule, onMark, onUnmark }: {
             fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
             marginTop: 1, direction: 'ltr',
           }}>
-            {count}/{routine.target} השבוע
+            {done ? '✓ הושלם' : `${count}/${routine.target} תוזמנו`}
           </div>
         </div>
+        {done && (
+          <span style={{
+            width: 30, height: 30, borderRadius: 99, flexShrink: 0,
+            background: 'rgba(255,255,255,0.95)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+          }}>
+            <Icon.check size={15} color="#7a7a88" sw={3} />
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 6, marginTop: 14, marginBottom: 14 }}>
         {Array.from({ length: routine.target }).map((_, i) => (
@@ -209,50 +225,20 @@ function WeeklyCard({ routine, count, onSchedule, onMark, onUnmark }: {
           }} />
         ))}
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={onSchedule}
-          style={{
-            flex: 1, border: 'none', cursor: 'pointer', borderRadius: 99,
-            padding: '8px 0', fontSize: 13, fontWeight: 700,
-            background: 'rgba(255,255,255,0.95)', color: ic.solid,
-            fontFamily: T.fonts.body,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          <Icon.plus size={13} color={ic.solid} sw={2.5} /> תזמני
-        </button>
-        <button
-          onClick={onMark}
-          disabled={done}
-          style={{
-            border: 'none', cursor: done ? 'default' : 'pointer', borderRadius: 99,
-            padding: '8px 14px', fontSize: 13, fontWeight: 700,
-            background: 'rgba(255,255,255,0.25)', color: '#fff',
-            fontFamily: T.fonts.body,
-            opacity: done ? 0.5 : 1,
-            WebkitTapHighlightColor: 'transparent',
-          }}
-        >
-          ✓
-        </button>
-        <button
-          onClick={onUnmark}
-          disabled={count <= 0}
-          style={{
-            border: 'none', cursor: count <= 0 ? 'default' : 'pointer', borderRadius: 99,
-            padding: '8px 14px', fontSize: 15, fontWeight: 700, lineHeight: 1,
-            background: 'rgba(255,255,255,0.25)', color: '#fff',
-            fontFamily: T.fonts.body,
-            opacity: count <= 0 ? 0.35 : 1,
-            WebkitTapHighlightColor: 'transparent',
-          }}
-          aria-label="הפחת"
-        >
-          −
-        </button>
-      </div>
+      <button
+        onClick={onSchedule}
+        style={{
+          width: '100%', border: 'none', cursor: 'pointer', borderRadius: 99,
+          padding: '9px 0', fontSize: 13, fontWeight: 700,
+          background: 'rgba(255,255,255,0.95)',
+          color: done ? '#7a7a88' : ic.solid,
+          fontFamily: T.fonts.body,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          WebkitTapHighlightColor: 'transparent',
+        }}
+      >
+        <Icon.plus size={13} color={done ? '#7a7a88' : ic.solid} sw={2.5} /> תזמני
+      </button>
     </div>
   );
 }
@@ -1042,7 +1028,7 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
               background: 'rgba(155,125,212,0.10)',
               borderRadius: 99, padding: '2px 8px',
             }}>
-              {weeklyRoutines.filter(r => weeklyCount(r, routineLogs, events) >= r.target).length}/{weeklyRoutines.length}
+              {weeklyRoutines.filter(r => weeklyCount(r, events) >= r.target).length}/{weeklyRoutines.length}
             </span>
           )}
         </div>
@@ -1065,10 +1051,8 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
             <div key={r.id} style={{ position: 'relative' }}>
               <WeeklyCard
                 routine={r}
-                count={weeklyCount(r, routineLogs, events)}
+                count={weeklyCount(r, events)}
                 onSchedule={() => setScheduling(r)}
-                onMark={() => onLogTap(r.id, 1)}
-                onUnmark={() => onLogTap(r.id, -1)}
               />
               {editing && (
                 <button onClick={() => onDeleteRoutine(r.id)} style={{
