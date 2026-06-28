@@ -195,7 +195,7 @@ export function WeatherScreen({ onClose }: { onClose: () => void }) {
     : null;
 
   return (
-    <div style={{ paddingBottom: 100 }}>
+    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 40 }}>
       {/* Header */}
       <div style={{ padding: '20px 16px 4px' }}>
         <div style={{
