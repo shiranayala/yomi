@@ -24,6 +24,28 @@ function dailyCount(routineId: string, logs: RoutineLog[]): number {
     .reduce((s, l) => s + l.count, 0);
 }
 
+function countForDate(routineId: string, logs: RoutineLog[], dateStr: string): number {
+  return logs
+    .filter(l => l.routineId === routineId && l.date === dateStr)
+    .reduce((s, l) => s + l.count, 0);
+}
+
+function dateStrForOffset(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+const DAY_LABELS_OFFSET: Record<number, string> = { 0: 'היום', '-1': 'אתמול' };
+
+function dayLabelForOffset(offset: number): string {
+  if (DAY_LABELS_OFFSET[offset]) return DAY_LABELS_OFFSET[offset];
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  const dayName = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'][d.getDay()];
+  return `${dayName} ${d.getDate()}/${d.getMonth()+1}`;
+}
+
 function weeklyCount(routine: Routine, events: CalEvent[]): number {
   const week = weekStartStr();
   const weekEnd = (() => {
@@ -835,6 +857,7 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
   const [showAddWeekly, setShowAddWeekly] = useState(false);
   const [scheduling, setScheduling] = useState<Routine | null>(null);
   const [editing, setEditing] = useState(false);
+  const [historyOffset, setHistoryOffset] = useState(0); // 0=today, -1=yesterday … -6
 
   const dailyRoutines  = routines.filter(r => r.kind === 'daily');
   const weeklyRoutines = routines.filter(r => r.kind === 'weekly');
@@ -946,24 +969,83 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
             ...glassCardLarge,
             padding: '14px 16px', marginBottom: 26,
           }}>
+            {/* Day navigation header */}
             <div style={{
-              fontSize: 12, fontWeight: 700, color: T.color.textMuted,
-              letterSpacing: '0.3px', marginBottom: 10, paddingInlineStart: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 12,
             }}>
-              היום
+              <button
+                onClick={() => setHistoryOffset(o => Math.max(o - 1, -6))}
+                disabled={historyOffset <= -6}
+                style={{
+                  background: 'none', border: 'none', cursor: historyOffset <= -6 ? 'default' : 'pointer',
+                  opacity: historyOffset <= -6 ? 0.25 : 1,
+                  padding: '2px 6px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center',
+                  WebkitTapHighlightColor: 'transparent',
+                }}
+                aria-label="יום קודם"
+              >
+                <Icon.chevR size={16} color={T.color.primaryDeep} />
+              </button>
+
+              <div style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: 13, fontWeight: 800, color: T.color.text, letterSpacing: '-0.2px',
+                }}>
+                  {dayLabelForOffset(historyOffset)}
+                </div>
+                {historyOffset !== 0 && (
+                  <button
+                    onClick={() => setHistoryOffset(0)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      fontSize: 11, fontWeight: 600, color: T.color.primary,
+                      fontFamily: T.fonts.body, padding: '2px 0 0',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    חזרה להיום
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setHistoryOffset(o => Math.min(o + 1, 0))}
+                disabled={historyOffset >= 0}
+                style={{
+                  background: 'none', border: 'none', cursor: historyOffset >= 0 ? 'default' : 'pointer',
+                  opacity: historyOffset >= 0 ? 0.25 : 1,
+                  padding: '2px 6px', borderRadius: 8,
+                  display: 'flex', alignItems: 'center',
+                  WebkitTapHighlightColor: 'transparent',
+                  transform: 'scaleX(-1)',
+                }}
+                aria-label="יום הבא"
+              >
+                <Icon.chevR size={16} color={T.color.primaryDeep} />
+              </button>
             </div>
+
+            {/* Routine rows */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {dailyRoutines.map(r => {
-                const c = dailyCount(r.id, routineLogs);
-                const ic = getRoutineIcon(r.iconKey);
+                const dateStr = dateStrForOffset(historyOffset);
+                const c    = historyOffset === 0
+                  ? dailyCount(r.id, routineLogs)
+                  : countForDate(r.id, routineLogs, dateStr);
+                const ic   = getRoutineIcon(r.iconKey);
                 const done = c >= r.target;
+                const isToday = historyOffset === 0;
                 return (
                   <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{
                       width: 26, height: 26, borderRadius: 99, flexShrink: 0,
-                      background: ic.gradient, color: '#fff',
+                      background: done ? DONE_GRADIENT : ic.gradient,
+                      color: '#fff',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       boxShadow: '0 2px 6px rgba(155,125,212,0.18)',
+                      transition: 'background .3s',
                     }}>
                       <ic.icon size={14} sw={2.4} />
                     </span>
@@ -991,12 +1073,12 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
                         <div style={{
                           height: '100%', borderRadius: 99,
                           width: `${Math.min(100, (c / r.target) * 100)}%`,
-                          background: ic.gradient,
-                          transition: 'width .4s',
+                          background: done ? DONE_GRADIENT : ic.gradient,
+                          transition: 'width .4s, background .3s',
                         }} />
                       </div>
                     </div>
-                    {c > 0 && (
+                    {isToday && c > 0 && (
                       <button
                         onClick={() => onLogTap(r.id, -1)}
                         style={{
