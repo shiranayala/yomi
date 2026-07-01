@@ -10,6 +10,8 @@ import {
   type DateFormat,
 } from '../lib/dateFormat';
 import { isItemOnDate } from '../lib/recurrence';
+import { getHolidaysInMonth, getHolidaysOnDate, holidayDotColor, holidayLabel } from '../lib/israeliHolidays';
+import type { IsraeliHoliday } from '../lib/israeliHolidays';
 import { CatDot, NavBtn, PageHeader, glassCard, glassCardLarge } from '../components/atoms';
 import { Icon } from '../icons';
 
@@ -53,6 +55,8 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
     return cells;
   }, [month, year]);
 
+  const holidayMap = useMemo(() => getHolidaysInMonth(year, month), [year, month]);
+
   // Compute dots dynamically from events + date-based tasks
   const dots = useMemo(() => {
     const map: Record<number, string[]> = {};
@@ -73,6 +77,8 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
 
   const selDate = new Date(year, month, sel);
   const selDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(sel).padStart(2, '0')}`;
+
+  const selHolidays: IsraeliHoliday[] = getHolidaysOnDate(selDateStr);
 
   const selEvents = events
     .filter(ev => isItemOnDate(ev.date, ev.recurrence ?? 'once', selDate, ev.excludeDates))
@@ -135,17 +141,28 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, rowGap: 4 }}>
           {grid.map((d, i) => {
             if (!d) return <div key={i} />;
-            const isToday = month === THIS_MONTH && year === THIS_YEAR && d === TODAY_DAY;
-            const isSel   = d === sel;
-            const dayDots = dots[d] ?? [];
+            const isToday    = month === THIS_MONTH && year === THIS_YEAR && d === TODAY_DAY;
+            const isSel      = d === sel;
+            const dayDots    = dots[d] ?? [];
+            const dayHols    = holidayMap[d] ?? [];
+            const primaryHol = dayHols[0];
             return (
               <button key={i} onClick={() => setSel(d)} style={{
                 border: 'none', cursor: 'pointer',
                 background: isSel ? T.color.primary : (isToday ? T.color.primarySoft : 'transparent'),
-                borderRadius: 13, padding: '7px 0 5px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                borderRadius: 13, padding: '3px 0 5px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                 transition: 'background .15s', WebkitTapHighlightColor: 'transparent',
               }}>
+                {/* Holiday indicator — always rendered for uniform cell height */}
+                <span style={{ height: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {primaryHol && (
+                    <span style={{
+                      width: 5, height: 5, borderRadius: 99,
+                      background: isSel ? 'rgba(255,255,255,0.75)' : holidayDotColor(primaryHol),
+                    }} />
+                  )}
+                </span>
                 <span style={{
                   fontSize: 14.5, fontWeight: (isToday || isSel) ? 700 : 500,
                   color: isSel ? T.color.onPrimary : (isToday ? T.color.primaryDeep : T.color.text),
@@ -234,6 +251,28 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
           </div>
         </div>
 
+        {/* Holiday cards */}
+        {selHolidays.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: selItems.length > 0 ? 9 : 0 }}>
+            {selHolidays.map(h => (
+              <div key={h.name} style={{
+                ...glassCard,
+                display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+              }}>
+                <span style={{
+                  width: 5, height: 26, borderRadius: 99,
+                  background: holidayDotColor(h), flexShrink: 0,
+                }} />
+                <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700, color: T.color.text }}>{h.name}</span>
+                <span style={{
+                  fontSize: 11.5, color: T.color.textMuted, fontWeight: 600,
+                  background: T.color.primarySoft, borderRadius: 8, padding: '2px 8px',
+                }}>{holidayLabel(h)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {selItems.length ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {selItems.map(item => {
@@ -292,7 +331,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
               }
             })}
           </div>
-        ) : (
+        ) : selHolidays.length === 0 ? (
           <div style={{
             ...glassCardLarge,
             padding: '28px 16px', textAlign: 'center',
@@ -300,7 +339,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
             <div style={{ fontFamily: T.fonts.heading, fontSize: 18, fontWeight: 800, letterSpacing: '-0.4px', color: T.color.text, marginBottom: 4 }}>יום פנוי לגמרי</div>
             <div style={{ fontSize: 13.5, color: T.color.textMuted }}>אין פריטים מתוכננים ליום הזה</div>
           </div>
-        )}
+        ) : null}
       </div>
       </div>
     </div>
