@@ -28,6 +28,37 @@ export const glassCardLarge: React.CSSProperties = {
     '0 1px 0 rgba(255,255,255,0.7) inset, 0 4px 14px rgba(155,125,212,0.08), 0 18px 38px rgba(155,125,212,0.10)',
 };
 
+/**
+ * Floating "+1 ⭐" that pops when a point is earned.
+ * Place inside a position:relative parent; bump `trigger` (a counter) to fire.
+ */
+export function PointPop({ trigger }: { trigger: number }) {
+  if (!trigger) return null;
+  return (
+    <>
+      <style>{`
+        @keyframes yomiPointPop {
+          0%   { opacity: 0; transform: translateY(0) scale(0.6); }
+          25%  { opacity: 1; transform: translateY(-8px) scale(1.15); }
+          100% { opacity: 0; transform: translateY(-30px) scale(1); }
+        }
+      `}</style>
+      <span
+        key={trigger}
+        style={{
+          position: 'absolute', top: -6, insetInlineStart: '50%', marginInlineStart: -18,
+          fontFamily: 'Inter, sans-serif',
+          fontSize: 13, fontWeight: 800, color: T.color.primaryDeep,
+          whiteSpace: 'nowrap',
+          textShadow: '0 1px 4px rgba(255,255,255,0.8)',
+          animation: 'yomiPointPop 0.9s ease-out forwards',
+          pointerEvents: 'none', zIndex: 5,
+        }}
+      >+1 ⭐</span>
+    </>
+  );
+}
+
 export function CatDot({ id, size = 8 }: { id: string; size?: number }) {
   const cats = useCats();
   const c = cats[id]?.color ?? '#9aa39e';

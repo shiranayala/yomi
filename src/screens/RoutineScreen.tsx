@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { theme } from '../theme';
-import type { Routine, RoutineLog, CalEvent } from '../lib/types';
+import type { Routine, RoutineLog, CalEvent, TimeOfDay } from '../lib/types';
 import {
   ROUTINE_ICONS, getRoutineIcon,
   ROUTINE_TEMPLATES_DAILY,
@@ -61,6 +61,53 @@ function weeklyCount(routine: Routine, events: CalEvent[]): number {
 
 const DONE_GRADIENT = 'linear-gradient(135deg, #9e9ea8 0%, #bdbdc7 100%)';
 
+// ── Time-of-day multi-select ─────────────────────────────────────────
+
+export const TIME_OF_DAY_OPTIONS: { key: TimeOfDay; label: string; emoji: string }[] = [
+  { key: 'morning', label: 'בוקר',   emoji: '☀️' },
+  { key: 'noon',    label: 'צהריים', emoji: '🌤️' },
+  { key: 'evening', label: 'ערב',    emoji: '🌙' },
+];
+
+function TimeOfDayPicker({ value, onChange }: {
+  value: TimeOfDay[];
+  onChange: (v: TimeOfDay[]) => void;
+}) {
+  const toggle = (k: TimeOfDay) =>
+    onChange(value.includes(k) ? value.filter(x => x !== k) : [...value, k]);
+  return (
+    <div>
+      <label style={{ fontSize: 12, fontWeight: 700, color: T.color.textMuted, paddingInlineStart: 4 }}>
+        זמן ביום <span style={{ fontWeight: 500 }}>(יופיע בעמוד היום · אפשר לבחור כמה)</span>
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 6 }}>
+        {TIME_OF_DAY_OPTIONS.map(opt => {
+          const sel = value.includes(opt.key);
+          return (
+            <button
+              key={opt.key}
+              onClick={() => toggle(opt.key)}
+              style={{
+                border: sel ? `1.5px solid ${T.color.primary}` : '1.5px solid rgba(155,125,212,0.18)',
+                borderRadius: 14, padding: '10px 0', cursor: 'pointer',
+                background: sel ? `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})` : '#fff',
+                color: sel ? '#fff' : T.color.text,
+                fontSize: 13.5, fontWeight: 700, fontFamily: T.fonts.body,
+                boxShadow: sel ? `0 4px 12px ${T.color.primary}44` : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                WebkitTapHighlightColor: 'transparent',
+                transition: 'all .15s',
+              }}
+            >
+              <span style={{ fontSize: 15 }}>{opt.emoji}</span>{opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Daily routine block ──────────────────────────────────────────────
 
 function DailyBlock({ routine, count, onTap, onMinus }: {
@@ -115,7 +162,7 @@ function DailyBlock({ routine, count, onTap, onMinus }: {
             textShadow: '0 2px 4px rgba(0,0,0,0.18)',
             animation: 'routinePop 0.8s ease-out forwards',
             pointerEvents: 'none',
-          }}>+1</span>
+          }}>{done ? '+1 ⭐' : '+1'}</span>
         )}
         <div style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.12))' }}>
           <Icon_ size={22} sw={2.2} />
@@ -356,12 +403,14 @@ function AddDailyModal({ onClose, onCreate }: {
 }) {
   const [picked, setPicked] = useState<RoutineTemplate | null>(null);
   const [target, setTarget] = useState(1);
+  const [times, setTimes] = useState<TimeOfDay[]>([]);
   const [customMode, setCustomMode] = useState(false);
 
   // custom state
   const [cTitle, setCTitle] = useState('');
   const [cIcon, setCIcon]   = useState<string>(DAILY_CUSTOM_ICON_KEYS[0]);
   const [cTarget, setCTarget] = useState(1);
+  const [cTimes, setCTimes] = useState<TimeOfDay[]>([]);
 
   const pickTemplate = (tpl: RoutineTemplate) => {
     setPicked(tpl);
@@ -376,6 +425,7 @@ function AddDailyModal({ onClose, onCreate }: {
       colorKey: picked.iconKey,
       kind: 'daily',
       target,
+      timesOfDay: times,
     });
     onClose();
   };
@@ -389,6 +439,7 @@ function AddDailyModal({ onClose, onCreate }: {
       colorKey: cIcon,
       kind: 'daily',
       target: cTarget,
+      timesOfDay: cTimes,
     });
     onClose();
   };
@@ -481,9 +532,13 @@ function AddDailyModal({ onClose, onCreate }: {
 
         <div style={{
           textAlign: 'center', fontSize: 13, color: T.color.textMuted,
-          marginTop: 14, marginBottom: 24,
+          marginTop: 14, marginBottom: 20,
         }}>
           {target === 1 ? 'פעם אחת ביום' : `${target} פעמים ביום`}
+        </div>
+
+        <div style={{ marginBottom: 24 }}>
+          <TimeOfDayPicker value={times} onChange={setTimes} />
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
@@ -566,6 +621,8 @@ function AddDailyModal({ onClose, onCreate }: {
           <Stepper value={cTarget} onChange={setCTarget} max={10} />
         </div>
 
+        <TimeOfDayPicker value={cTimes} onChange={setCTimes} />
+
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
           <button
             onClick={() => setCustomMode(false)}
@@ -589,6 +646,114 @@ function AddDailyModal({ onClose, onCreate }: {
               cursor: cTitle.trim() ? 'pointer' : 'default', fontFamily: T.fonts.body,
             }}
           >צרי פעולה</button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// ── EDIT DAILY: name, icon, frequency, time of day ───────────────────
+
+function EditDailyModal({ routine, onClose, onSave }: {
+  routine: Routine;
+  onClose: () => void;
+  onSave: (patch: Partial<Routine>) => void;
+}) {
+  const [title, setTitle]   = useState(routine.title);
+  const [iconKey, setIconKey] = useState(routine.iconKey);
+  const [target, setTarget] = useState(routine.target);
+  const [times, setTimes]   = useState<TimeOfDay[]>(routine.timesOfDay ?? []);
+
+  const iconKeys = DAILY_CUSTOM_ICON_KEYS.includes(routine.iconKey)
+    ? DAILY_CUSTOM_ICON_KEYS
+    : [routine.iconKey, ...DAILY_CUSTOM_ICON_KEYS];
+
+  const submit = () => {
+    const t = title.trim();
+    if (!t) return;
+    onSave({ title: t, iconKey, colorKey: iconKey, target, timesOfDay: times });
+    onClose();
+  };
+
+  return (
+    <Sheet onClose={onClose} title="עריכת פעולה">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: T.color.textMuted, paddingInlineStart: 4 }}>שם הפעולה</label>
+          <input
+            value={title} onChange={e => setTitle(e.target.value)}
+            style={{
+              width: '100%', boxSizing: 'border-box', marginTop: 6,
+              border: '1.5px solid rgba(155,125,212,0.18)',
+              borderRadius: 14, padding: '12px 14px',
+              fontSize: 15, color: T.color.text,
+              background: '#fff', outline: 'none',
+              fontFamily: T.fonts.body, direction: 'rtl',
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: T.color.textMuted, paddingInlineStart: 4 }}>אייקון</label>
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: 8, marginTop: 6,
+          }}>
+            {iconKeys.map(key => {
+              const ic = ROUTINE_ICONS[key] ?? getRoutineIcon(key);
+              const Icon_ = ic.icon;
+              const isSel = iconKey === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setIconKey(key)}
+                  style={{
+                    background: ic.gradient, borderRadius: 14,
+                    padding: '12px 0', border: 'none', cursor: 'pointer',
+                    color: '#fff', position: 'relative',
+                    outline: isSel ? '3px solid ' + T.color.primary : 'none',
+                    outlineOffset: 2,
+                    display: 'flex', justifyContent: 'center',
+                    boxShadow: '0 1px 0 rgba(255,255,255,0.5) inset, 0 4px 10px rgba(155,125,212,0.1)',
+                  }}
+                >
+                  <Icon_ size={26} sw={2.2} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: T.color.textMuted, paddingInlineStart: 4, display: 'block', textAlign: 'center', marginBottom: 10 }}>כמה פעמים ביום</label>
+          <Stepper value={target} onChange={setTarget} max={10} />
+        </div>
+
+        <TimeOfDayPicker value={times} onChange={setTimes} />
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1, border: 'none', borderRadius: 99, padding: '13px 0',
+              background: T.color.surfaceAlt, color: T.color.textMuted,
+              fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: T.fonts.body,
+            }}
+          >ביטול</button>
+          <button
+            onClick={submit}
+            disabled={!title.trim()}
+            style={{
+              flex: 2, border: 'none', borderRadius: 99, padding: '13px 0',
+              background: title.trim()
+                ? `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`
+                : T.color.surfaceAlt,
+              color: title.trim() ? '#fff' : T.color.textMuted,
+              boxShadow: title.trim() ? `0 4px 14px ${T.color.primary}55` : 'none',
+              fontSize: 15, fontWeight: 700,
+              cursor: title.trim() ? 'pointer' : 'default', fontFamily: T.fonts.body,
+            }}
+          >שמרי</button>
         </div>
       </div>
     </Sheet>
@@ -844,11 +1009,12 @@ function ScheduleModal({ routine, onClose, onSchedule }: {
 
 // ── Main screen ───────────────────────────────────────────────────────
 
-export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, onDeleteRoutine, onLogTap, onScheduleWeekly }: {
+export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, onUpdateRoutine, onDeleteRoutine, onLogTap, onScheduleWeekly }: {
   routines: Routine[];
   routineLogs: RoutineLog[];
   events: CalEvent[];
   onCreateRoutine: (r: Omit<Routine, 'id' | 'createdAt'>) => void;
+  onUpdateRoutine: (id: string, patch: Partial<Routine>) => void;
   onDeleteRoutine: (id: string) => void;
   onLogTap: (routineId: string, delta: number) => void;
   onScheduleWeekly: (routine: Routine, date: string, time: string) => void;
@@ -856,6 +1022,7 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
   const [showAddDaily, setShowAddDaily]   = useState(false);
   const [showAddWeekly, setShowAddWeekly] = useState(false);
   const [scheduling, setScheduling] = useState<Routine | null>(null);
+  const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [editing, setEditing] = useState(false);
   const [historyOffset, setHistoryOffset] = useState(0); // 0=today, -1=yesterday … -6
 
@@ -933,6 +1100,27 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
                 onTap={() => onLogTap(r.id, 1)}
                 onMinus={() => onLogTap(r.id, -1)}
               />
+              {editing && (
+                <button
+                  onClick={() => setEditingRoutine(r)}
+                  aria-label="עריכה"
+                  style={{
+                    position: 'absolute', inset: 0, borderRadius: 18,
+                    background: 'rgba(0,0,0,0.14)', border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    WebkitTapHighlightColor: 'transparent',
+                  }}
+                >
+                  <span style={{
+                    width: 34, height: 34, borderRadius: 99,
+                    background: 'rgba(255,255,255,0.95)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                  }}>
+                    <Icon.edit size={16} color={T.color.primaryDeep} sw={2} />
+                  </span>
+                </button>
+              )}
               {editing && (
                 <button onClick={() => onDeleteRoutine(r.id)} style={{
                   position: 'absolute', top: -6, insetInlineEnd: -6,
@@ -1177,6 +1365,13 @@ export function RoutineScreen({ routines, routineLogs, events, onCreateRoutine, 
         <AddWeeklyModal
           onClose={() => setShowAddWeekly(false)}
           onCreate={onCreateRoutine}
+        />
+      )}
+      {editingRoutine && (
+        <EditDailyModal
+          routine={editingRoutine}
+          onClose={() => setEditingRoutine(null)}
+          onSave={patch => onUpdateRoutine(editingRoutine.id, patch)}
         />
       )}
       {scheduling && (

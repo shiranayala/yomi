@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { theme, catColor } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
-import type { Task } from '../lib/types';
+import type { Task, Routine, RoutineLog } from '../lib/types';
 import { isToday, isItemOnDate, todayStr } from '../lib/recurrence';
 import { monthNames } from '../lib/data';
-import { Check, Chip, AddRow, SectionHead, PageHeader, glassCard } from '../components/atoms';
+import { getRoutineIcon } from '../lib/routineIcons';
+import { weekDates, countOn } from '../lib/points';
+import { Check, Chip, AddRow, SectionHead, PageHeader, glassCard, glassCardLarge, PointPop } from '../components/atoms';
 import { Icon } from '../icons';
 
 const T = theme;
@@ -42,6 +44,11 @@ function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
 }) {
   const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
+  const [pop, setPop] = useState(0);
+  const toggle = () => {
+    if (!t.done) setPop(p => p + 1);
+    onToggle(t.id);
+  };
   return (
     <div onClick={onClick} style={{
       ...glassCard,
@@ -52,8 +59,9 @@ function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
       opacity: t.done ? 0.55 : 1, cursor: 'pointer',
     }}>
-      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={overdue ? OVERDUE_COLOR : catColor(t.cat, cats)} />
+      <div onClick={e => { e.stopPropagation(); toggle(); }} style={{ position: 'relative' }}>
+        <PointPop trigger={pop} />
+        <Check checked={t.done} onToggle={toggle} color={overdue ? OVERDUE_COLOR : catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -89,6 +97,147 @@ function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
   );
 }
 
+// ── Points ───────────────────────────────────────────────────────────
+
+const POINTS_DONE_GRADIENT = 'linear-gradient(135deg, #9e9ea8 0%, #bdbdc7 100%)';
+
+function PointsSection({ routines, routineLogs, taskPoints }: {
+  routines: Routine[];
+  routineLogs: RoutineLog[];
+  taskPoints: { week: number; total: number };
+}) {
+  const daily = routines.filter(r => r.kind === 'daily');
+  const wDates = weekDates();
+
+  // Per-routine: days completed this week (= points)
+  const weekly = daily.map(r => ({
+    r,
+    days: wDates.filter(ds => countOn(r.id, routineLogs, ds) >= r.target).length,
+  }));
+  const weekRoutinePoints = weekly.reduce((s, w) => s + w.days, 0);
+
+  // All-time routine points: every log row (one per routine+day) that reached its target
+  const totalRoutinePoints = daily.reduce((sum, r) =>
+    sum + routineLogs.filter(l => l.routineId === r.id && l.count >= r.target).length, 0);
+
+  const weekTotal = weekRoutinePoints + taskPoints.week;
+  const allTime   = totalRoutinePoints + taskPoints.total;
+
+  return (
+    <>
+      <div style={{ height: 26 }} />
+      <SectionHead>⭐ הנקודות שלי</SectionHead>
+
+      {/* Weekly summary — resets every Sunday */}
+      <div style={{ ...glassCardLarge, padding: '16px 16px 14px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: T.color.text }}>השבוע</div>
+            <div style={{ fontSize: 11.5, color: T.color.textMuted, fontWeight: 500, marginTop: 1 }}>
+              מתאפס כל יום ראשון
+            </div>
+          </div>
+          <div style={{
+            fontFamily: 'Inter, sans-serif', fontSize: 28, fontWeight: 800,
+            background: `linear-gradient(120deg, ${T.color.primaryDeep} 0%, ${T.color.heroFrom} 100%)`,
+            WebkitBackgroundClip: 'text', backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent', color: 'transparent',
+            direction: 'ltr',
+          }}>{weekTotal}</div>
+        </div>
+
+        {/* Split: routine vs regular */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          {[
+            { label: 'משימות קבועות', val: weekRoutinePoints },
+            { label: 'משימות רגילות', val: taskPoints.week },
+          ].map(x => (
+            <div key={x.label} style={{
+              flex: 1, borderRadius: 14, padding: '9px 12px',
+              background: 'rgba(155,125,212,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: T.color.textMuted }}>{x.label}</span>
+              <span style={{
+                fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 800,
+                color: T.color.primaryDeep, direction: 'ltr',
+              }}>{x.val}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Per-routine breakdown */}
+        {weekly.length > 0 && (
+          <>
+            <div style={{ height: 1, background: T.color.line, margin: '14px 0 12px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {weekly.map(({ r, days }) => {
+                const ic = getRoutineIcon(r.iconKey);
+                const Icon_ = ic.icon;
+                return (
+                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{
+                      width: 26, height: 26, borderRadius: 99, flexShrink: 0,
+                      background: days > 0 ? ic.gradient : POINTS_DONE_GRADIENT,
+                      color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 2px 6px rgba(155,125,212,0.18)',
+                    }}>
+                      <Icon_ size={14} sw={2.4} />
+                    </span>
+                    <span style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: T.color.text, minWidth: 0 }}>
+                      {r.title}
+                    </span>
+                    <span style={{
+                      fontSize: 11.5, fontWeight: 600, color: T.color.textMuted,
+                      direction: 'ltr',
+                    }}>{days}/7 ימים</span>
+                    <span style={{
+                      fontFamily: 'Inter, sans-serif', fontSize: 12.5, fontWeight: 800,
+                      color: days > 0 ? T.color.primaryDeep : T.color.textMuted,
+                      background: 'rgba(155,125,212,0.10)', borderRadius: 99,
+                      padding: '2px 9px', direction: 'ltr', flexShrink: 0,
+                    }}>{days} ⭐</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* All-time total */}
+      <div style={{
+        borderRadius: T.radius.tile,
+        background: `linear-gradient(135deg, ${T.color.primaryDeep} 0%, ${T.color.heroFrom} 100%)`,
+        padding: '18px 20px',
+        color: '#fff', position: 'relative', overflow: 'hidden',
+        boxShadow: `0 8px 24px ${T.color.primary}44`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{
+          position: 'absolute', top: -24, left: -24, width: 96, height: 96,
+          background: 'radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <div>
+          <div style={{ fontSize: 14.5, fontWeight: 800 }}>סה״כ נקודות שצברת</div>
+          <div style={{ fontSize: 11.5, fontWeight: 500, opacity: 0.85, marginTop: 2 }}>
+            מכל הזמנים · ממשיך להצטבר
+          </div>
+        </div>
+        <div style={{
+          fontFamily: 'Inter, sans-serif', fontSize: 34, fontWeight: 800,
+          direction: 'ltr', display: 'flex', alignItems: 'center', gap: 8,
+          textShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          {allTime}<span style={{ fontSize: 22 }}>⭐</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
 const TAB_LABELS: { id: Tab; label: string }[] = [
   { id: 'today',    label: 'היום'    },
   { id: 'tomorrow', label: 'מחר'     },
@@ -96,8 +245,11 @@ const TAB_LABELS: { id: Tab; label: string }[] = [
   { id: 'future',   label: 'עתידי'   },
 ];
 
-export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddTomorrowTask, onAddLaterTask, onEditTask, onDeferTask }: {
+export function TasksScreen({ tasks, routines, routineLogs, taskPoints, onToggleTask, onAddTask, onAddTomorrowTask, onAddLaterTask, onEditTask, onDeferTask }: {
   tasks: Task[];
+  routines: Routine[];
+  routineLogs: RoutineLog[];
+  taskPoints: { week: number; total: number };
   onToggleTask: (id: string) => void;
   onAddTask: (title: string) => void;
   onAddTomorrowTask: (title: string) => void;
@@ -312,6 +464,9 @@ export function TasksScreen({ tasks, onToggleTask, onAddTask, onAddTomorrowTask,
             ))}
           </>
         )}
+
+        {/* ── Points ── */}
+        <PointsSection routines={routines} routineLogs={routineLogs} taskPoints={taskPoints} />
 
       </div>
     </div>

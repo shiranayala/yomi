@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { theme, catColor } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
-import type { Task, CalEvent } from '../lib/types';
+import type { Task, CalEvent, Routine, RoutineLog, TimeOfDay } from '../lib/types';
 import { isToday, isTomorrow, todayStr } from '../lib/recurrence';
-import { Check, Chip, AddRow, SectionHead } from '../components/atoms';
+import { getRoutineIcon, todayStrLocal } from '../lib/routineIcons';
+import { Check, Chip, AddRow, SectionHead, PointPop } from '../components/atoms';
+import { routineWeekPoints } from '../lib/points';
 import { Icon } from '../icons';
 import { useWeather, type WeatherIconKey } from '../lib/useWeather';
 import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
@@ -18,6 +20,127 @@ function getGreeting() {
 
 const T = theme;
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+// ── Routine section (time-of-day) ─────────────────────────────────
+
+const ROUTINE_DONE_GRADIENT = 'linear-gradient(135deg, #9e9ea8 0%, #bdbdc7 100%)';
+
+const TIME_OF_DAY_META: Record<TimeOfDay, { title: string; emoji: string }> = {
+  morning: { title: 'משימות קבועות לבוקר',   emoji: '☀️' },
+  noon:    { title: 'משימות קבועות לצהריים', emoji: '🌤️' },
+  evening: { title: 'משימות קבועות לערב',    emoji: '🌙' },
+};
+
+function currentTimeOfDay(): TimeOfDay {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 17) return 'noon';
+  return 'evening';
+}
+
+function routineCountToday(routineId: string, logs: RoutineLog[]): number {
+  const today = todayStrLocal();
+  return logs
+    .filter(l => l.routineId === routineId && l.date === today)
+    .reduce((s, l) => s + l.count, 0);
+}
+
+function RoutineTodayRow({ r, count, onTap, onMinus }: {
+  r: Routine; count: number; onTap: () => void; onMinus: () => void;
+}) {
+  const ic = getRoutineIcon(r.iconKey);
+  const Icon_ = ic.icon;
+  const done = count >= r.target;
+  const [pop, setPop] = useState(0);
+  const handleTap = () => {
+    if (done) return;
+    if (count + 1 >= r.target) setPop(p => p + 1); // this tap earns the point
+    onTap();
+  };
+  return (
+    <div
+      onClick={handleTap}
+      style={{
+        ...glassCard,
+        padding: '11px 14px', cursor: done ? 'default' : 'pointer',
+        opacity: done ? 0.6 : 1,
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}
+    >
+      {/* Icon bubble */}
+      <span style={{
+        width: 34, height: 34, borderRadius: 12, flexShrink: 0,
+        background: done ? ROUTINE_DONE_GRADIENT : ic.gradient,
+        color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(155,125,212,0.18)',
+        transition: 'background .3s',
+      }}>
+        <Icon_ size={18} sw={2.2} />
+      </span>
+
+      {/* Title + progress */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 14.5, fontWeight: 700, color: T.color.text, lineHeight: 1.25,
+          textDecoration: done ? 'line-through' : 'none',
+          textDecorationColor: T.color.textMuted,
+        }}>
+          {r.title}
+        </div>
+        {r.target > 1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <div style={{
+              flex: 1, maxWidth: 120, height: 5, borderRadius: 99,
+              background: 'rgba(155,125,212,0.12)', overflow: 'hidden',
+            }}>
+              <div style={{
+                height: '100%', borderRadius: 99,
+                width: `${Math.min(100, (count / r.target) * 100)}%`,
+                background: done ? ROUTINE_DONE_GRADIENT : ic.gradient,
+                transition: 'width .35s, background .3s',
+              }} />
+            </div>
+            <span style={{
+              fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700,
+              color: T.color.textMuted, direction: 'ltr',
+            }}>{count}/{r.target}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Minus (undo) */}
+      {count > 0 && (
+        <button
+          onClick={e => { e.stopPropagation(); onMinus(); }}
+          aria-label="הפחת"
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: T.color.textMuted, fontSize: 17, lineHeight: 1,
+            padding: '4px 2px', flexShrink: 0,
+          }}
+        >−</button>
+      )}
+
+      {/* Done state / tap hint */}
+      <span style={{ position: 'relative', flexShrink: 0, display: 'inline-flex' }}>
+        <PointPop trigger={pop} />
+        <span style={{
+          width: 26, height: 26, borderRadius: 99,
+          background: done ? ROUTINE_DONE_GRADIENT : 'rgba(155,125,212,0.10)',
+          border: done ? 'none' : `1.5px solid rgba(155,125,212,0.35)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'background .3s',
+        }}>
+          {done
+            ? <Icon.check size={13} color="#fff" sw={3} />
+            : <span style={{ fontSize: 13, fontWeight: 800, color: T.color.primary, lineHeight: 1 }}>+</span>
+          }
+        </span>
+      </span>
+    </div>
+  );
+}
 
 function RecurIcon() {
   return (
@@ -118,6 +241,11 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
   const cats = useCats();
   const c = catColor(t.cat, cats);
   const recurring = t.recurrence && t.recurrence !== 'once';
+  const [pop, setPop] = useState(0);
+  const toggle = () => {
+    if (!t.done) setPop(p => p + 1);
+    onToggle(t.id);
+  };
   return (
     <div onClick={onClick} style={{
       ...glassCard,
@@ -140,8 +268,9 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
         </div>
       </div>
       {/* Check — appears on the LEFT in RTL */}
-      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={c} />
+      <div onClick={e => { e.stopPropagation(); toggle(); }} style={{ position: 'relative' }}>
+        <PointPop trigger={pop} />
+        <Check checked={t.done} onToggle={toggle} color={c} />
       </div>
     </div>
   );
@@ -172,14 +301,20 @@ function TaskItem({ t, onToggle, onClick }: {
 }) {
   const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
+  const [pop, setPop] = useState(0);
+  const toggle = () => {
+    if (!t.done) setPop(p => p + 1);
+    onToggle(t.id);
+  };
   return (
     <div onClick={onClick} style={{
       ...glassCard,
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
       opacity: t.done ? 0.55 : 1, cursor: 'pointer',
     }}>
-      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
-        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat, cats)} />
+      <div onClick={e => { e.stopPropagation(); toggle(); }} style={{ position: 'relative' }}>
+        <PointPop trigger={pop} />
+        <Check checked={t.done} onToggle={toggle} color={catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -289,9 +424,13 @@ function WeatherWidget({ temp, label, icon }: { temp: number; label: string; ico
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut }: {
+export function TodayScreen({ tasks, events, routines, routineLogs, taskPoints, onLogRoutine, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
+  routines: Routine[];
+  routineLogs: RoutineLog[];
+  taskPoints: { week: number; total: number };
+  onLogRoutine: (routineId: string, delta: number) => void;
   userName: string;
   userEmail: string;
   dateFormat: DateFormat;
@@ -320,6 +459,19 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
   );
 
   const todayEvents = events.filter(ev => isToday(ev.date, ev.recurrence, ev.excludeDates));
+
+  // Routines for the current part of day
+  const timeOfDay = currentTimeOfDay();
+  const todMeta = TIME_OF_DAY_META[timeOfDay];
+  const routinesNow = routines.filter(r =>
+    r.kind === 'daily' && (r.timesOfDay ?? []).includes(timeOfDay)
+  );
+  const routinesNowDone = routinesNow.filter(r =>
+    routineCountToday(r.id, routineLogs) >= r.target
+  ).length;
+
+  // Points earned this week (routines + regular tasks)
+  const weekPoints = routineWeekPoints(routines, routineLogs) + taskPoints.week;
 
   // Tomorrow
   const tomorrowTasks = tasks.filter(t =>
@@ -448,19 +600,30 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
             {getGreeting()}{userName ? `, ${userName}!` : '!'}
           </div>
 
-          {/* Weather — tappable to open detail screen */}
-          {weather && (
-            <button
-              onClick={onOpenWeather}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                WebkitTapHighlightColor: 'transparent',
-                display: 'inline-flex', alignItems: 'center',
-              }}
-            >
-              <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
-            </button>
-          )}
+          {/* Weather + week points */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {weather && (
+              <button
+                onClick={onOpenWeather}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  WebkitTapHighlightColor: 'transparent',
+                  display: 'inline-flex', alignItems: 'center',
+                }}
+              >
+                <WeatherWidget temp={weather.temp} label={weather.label} icon={weather.icon} />
+              </button>
+            )}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: `linear-gradient(135deg, ${T.color.primary}, ${T.color.heroFrom})`,
+              borderRadius: 99, padding: '8px 13px',
+              fontSize: 13, fontWeight: 700, color: '#fff',
+              boxShadow: `0 4px 14px ${T.color.primary}44`,
+            }}>
+              ⭐ {weekPoints} נק׳ השבוע
+            </span>
+          </div>
         </div>
       </div>
 
@@ -505,6 +668,27 @@ export function TodayScreen({ tasks, events, userName, userEmail, dateFormat, on
             ))}
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
           </div>
+
+          {/* Fixed routines for the current part of day */}
+          {routinesNow.length > 0 && (
+            <>
+              <div style={{ height: 18 }} />
+              <SectionHead sub={`${routinesNowDone}/${routinesNow.length} הושלמו`}>
+                {todMeta.emoji} {todMeta.title}
+              </SectionHead>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {routinesNow.map(r => (
+                  <RoutineTodayRow
+                    key={r.id}
+                    r={r}
+                    count={routineCountToday(r.id, routineLogs)}
+                    onTap={() => onLogRoutine(r.id, 1)}
+                    onMinus={() => onLogRoutine(r.id, -1)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Tomorrow reminder */}
           {hasTomorrow && (
