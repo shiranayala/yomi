@@ -20,7 +20,7 @@ import {
   onAuthStateChanged, authSignOut, getRedirectResult,
   type User,
 } from './lib/firebase';
-import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category, Routine, RoutineLog, PointsStats } from './lib/types';
+import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category, Routine, RoutineLog } from './lib/types';
 import { todayStr } from './lib/recurrence';
 import { weekStartStr, todayStrLocal } from './lib/routineIcons';
 import { CategoriesCtx, DEFAULT_CATEGORIES, pastelForCategoryId } from './lib/CategoriesContext';
@@ -76,7 +76,6 @@ export default function App() {
   const [userCategories, setUserCategories] = useState<Category[]>([]);
   const [routines, setRoutines]         = useState<Routine[]>([]);
   const [routineLogs, setRoutineLogs]   = useState<RoutineLog[]>([]);
-  const [pointsStats, setPointsStats]   = useState<PointsStats | null>(null);
   const [form, setForm]         = useState<FormState>({ kind: 'none' });
   const [pendingEventOp, setPendingEventOp] = useState<PendingEventOp | null>(null);
   const [fabOpen, setFabOpen]   = useState(false);
@@ -120,30 +119,7 @@ export default function App() {
     load<Category>('categories', setUserCategories);
     load<Routine>('routines', setRoutines);
     load<RoutineLog>('routineLogs', setRoutineLogs);
-    load<PointsStats>('stats', arr => setPointsStats(arr.find(s => s.id === 'points') ?? null));
   }, [uid]);
-
-  // ── Points (regular tasks) ────────────────────────────────────────
-  /** +1 when a task is checked, -1 when unchecked. Week counter auto-resets on Sunday. */
-  const bumpTaskPoints = (delta: number) => {
-    const ws = weekStartStr();
-    const base: PointsStats = pointsStats && pointsStats.weekStart === ws
-      ? pointsStats
-      : { id: 'points', totalTaskPoints: pointsStats?.totalTaskPoints ?? 0, weekStart: ws, weekTaskPoints: 0 };
-    const next: PointsStats = {
-      ...base,
-      totalTaskPoints: Math.max(0, base.totalTaskPoints + delta),
-      weekTaskPoints:  Math.max(0, base.weekTaskPoints + delta),
-    };
-    setPointsStats(next);
-    fsSet('stats', 'points', next);
-  };
-
-  /** Stats normalized to the current week (0 if the stored week is stale). */
-  const taskPoints = {
-    week:  pointsStats && pointsStats.weekStart === weekStartStr() ? pointsStats.weekTaskPoints : 0,
-    total: pointsStats?.totalTaskPoints ?? 0,
-  };
 
   // ── Task operations ───────────────────────────────────────────────
   const toggleTask = (id: string) => {
@@ -152,7 +128,6 @@ export default function App() {
     const newDone = !task.done;
     setTasks(ts => ts.map(t => t.id === id ? { ...t, done: newDone } : t));
     fsUpdate('tasks', id, { done: newDone });
-    bumpTaskPoints(newDone ? 1 : -1);
   };
 
   const saveTask = (t: Task) => {
@@ -672,7 +647,6 @@ export default function App() {
             tasks={tasks} events={events}
             routines={routines}
             routineLogs={routineLogs}
-            taskPoints={taskPoints}
             onLogRoutine={logRoutineTap}
             userName={firstName}
             userEmail={userEmail}
@@ -703,7 +677,6 @@ export default function App() {
             tasks={tasks}
             routines={routines}
             routineLogs={routineLogs}
-            taskPoints={taskPoints}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
             onAddTomorrowTask={quickAddTomorrowTask}

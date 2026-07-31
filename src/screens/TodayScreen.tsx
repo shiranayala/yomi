@@ -25,11 +25,13 @@ const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמיש
 
 const ROUTINE_DONE_GRADIENT = 'linear-gradient(135deg, #9e9ea8 0%, #bdbdc7 100%)';
 
-const TIME_OF_DAY_META: Record<TimeOfDay, { title: string; emoji: string }> = {
-  morning: { title: 'משימות קבועות לבוקר',   emoji: '☀️' },
-  noon:    { title: 'משימות קבועות לצהריים', emoji: '🌤️' },
-  evening: { title: 'משימות קבועות לערב',    emoji: '🌙' },
+const TIME_OF_DAY_META: Record<TimeOfDay, { title: string; short: string; emoji: string }> = {
+  morning: { title: 'משימות קבועות לבוקר',   short: 'בוקר',   emoji: '☀️' },
+  noon:    { title: 'משימות קבועות לצהריים', short: 'צהריים', emoji: '🌤️' },
+  evening: { title: 'משימות קבועות לערב',    short: 'ערב',    emoji: '🌙' },
 };
+
+const TOD_ORDER: TimeOfDay[] = ['morning', 'noon', 'evening'];
 
 function currentTimeOfDay(): TimeOfDay {
   const h = new Date().getHours();
@@ -241,11 +243,6 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
   const cats = useCats();
   const c = catColor(t.cat, cats);
   const recurring = t.recurrence && t.recurrence !== 'once';
-  const [pop, setPop] = useState(0);
-  const toggle = () => {
-    if (!t.done) setPop(p => p + 1);
-    onToggle(t.id);
-  };
   return (
     <div onClick={onClick} style={{
       ...glassCard,
@@ -268,9 +265,8 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
         </div>
       </div>
       {/* Check — appears on the LEFT in RTL */}
-      <div onClick={e => { e.stopPropagation(); toggle(); }} style={{ position: 'relative' }}>
-        <PointPop trigger={pop} />
-        <Check checked={t.done} onToggle={toggle} color={c} />
+      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
+        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={c} />
       </div>
     </div>
   );
@@ -301,20 +297,14 @@ function TaskItem({ t, onToggle, onClick }: {
 }) {
   const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
-  const [pop, setPop] = useState(0);
-  const toggle = () => {
-    if (!t.done) setPop(p => p + 1);
-    onToggle(t.id);
-  };
   return (
     <div onClick={onClick} style={{
       ...glassCard,
       display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
       opacity: t.done ? 0.55 : 1, cursor: 'pointer',
     }}>
-      <div onClick={e => { e.stopPropagation(); toggle(); }} style={{ position: 'relative' }}>
-        <PointPop trigger={pop} />
-        <Check checked={t.done} onToggle={toggle} color={catColor(t.cat, cats)} />
+      <div onClick={e => { e.stopPropagation(); onToggle(t.id); }}>
+        <Check checked={t.done} onToggle={() => onToggle(t.id)} color={catColor(t.cat, cats)} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
@@ -424,12 +414,11 @@ function WeatherWidget({ temp, label, icon }: { temp: number; label: string; ico
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, routines, routineLogs, taskPoints, onLogRoutine, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut }: {
+export function TodayScreen({ tasks, events, routines, routineLogs, onLogRoutine, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut }: {
   tasks: Task[];
   events: CalEvent[];
   routines: Routine[];
   routineLogs: RoutineLog[];
-  taskPoints: { week: number; total: number };
   onLogRoutine: (routineId: string, delta: number) => void;
   userName: string;
   userEmail: string;
@@ -460,18 +449,21 @@ export function TodayScreen({ tasks, events, routines, routineLogs, taskPoints, 
 
   const todayEvents = events.filter(ev => isToday(ev.date, ev.recurrence, ev.excludeDates));
 
-  // Routines for the current part of day
-  const timeOfDay = currentTimeOfDay();
-  const todMeta = TIME_OF_DAY_META[timeOfDay];
+  // Routines by part of day — defaults to now, arrows browse the others
+  const [todView, setTodView] = useState<TimeOfDay>(() => currentTimeOfDay());
+  const todIdx = TOD_ORDER.indexOf(todView);
+  const todMeta = TIME_OF_DAY_META[todView];
+  const isNowSlot = todView === currentTimeOfDay();
+  const hasAnyTod = routines.some(r => r.kind === 'daily' && (r.timesOfDay ?? []).length > 0);
   const routinesNow = routines.filter(r =>
-    r.kind === 'daily' && (r.timesOfDay ?? []).includes(timeOfDay)
+    r.kind === 'daily' && (r.timesOfDay ?? []).includes(todView)
   );
   const routinesNowDone = routinesNow.filter(r =>
     routineCountToday(r.id, routineLogs) >= r.target
   ).length;
 
-  // Points earned this week (routines + regular tasks)
-  const weekPoints = routineWeekPoints(routines, routineLogs) + taskPoints.week;
+  // Points earned this week (routines only)
+  const weekPoints = routineWeekPoints(routines, routineLogs);
 
   // Tomorrow
   const tomorrowTasks = tasks.filter(t =>
@@ -669,24 +661,94 @@ export function TodayScreen({ tasks, events, routines, routineLogs, taskPoints, 
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
           </div>
 
-          {/* Fixed routines for the current part of day */}
-          {routinesNow.length > 0 && (
+          {/* Fixed routines by part of day — arrows browse morning/noon/evening */}
+          {hasAnyTod && (
             <>
               <div style={{ height: 18 }} />
-              <SectionHead sub={`${routinesNowDone}/${routinesNow.length} הושלמו`}>
-                {todMeta.emoji} {todMeta.title}
-              </SectionHead>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {routinesNow.map(r => (
-                  <RoutineTodayRow
-                    key={r.id}
-                    r={r}
-                    count={routineCountToday(r.id, routineLogs)}
-                    onTap={() => onLogRoutine(r.id, 1)}
-                    onMinus={() => onLogRoutine(r.id, -1)}
-                  />
-                ))}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                margin: '0 2px 10px',
+              }}>
+                <div>
+                  <div style={{
+                    fontFamily: T.fonts.heading, fontSize: 16.5, fontWeight: 800,
+                    letterSpacing: '-0.3px', color: T.color.text,
+                  }}>
+                    {todMeta.emoji} {todMeta.title}
+                  </div>
+                  <div style={{ fontSize: 11.5, fontWeight: 600, color: T.color.textMuted, marginTop: 2 }}>
+                    {routinesNow.length > 0 ? `${routinesNowDone}/${routinesNow.length} הושלמו` : ''}
+                    {!isNowSlot && (
+                      <button
+                        onClick={() => setTodView(currentTimeOfDay())}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 11.5, fontWeight: 700, color: T.color.primary,
+                          fontFamily: T.fonts.body, padding: 0,
+                          marginInlineStart: routinesNow.length > 0 ? 8 : 0,
+                          WebkitTapHighlightColor: 'transparent',
+                        }}
+                      >
+                        חזרה לעכשיו
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <button
+                    onClick={() => setTodView(TOD_ORDER[Math.max(0, todIdx - 1)])}
+                    disabled={todIdx <= 0}
+                    aria-label="זמן קודם"
+                    style={{
+                      background: 'none', border: 'none',
+                      cursor: todIdx <= 0 ? 'default' : 'pointer',
+                      opacity: todIdx <= 0 ? 0.25 : 1,
+                      padding: '4px 6px', display: 'flex', alignItems: 'center',
+                      WebkitTapHighlightColor: 'transparent',
+                    }}
+                  >
+                    <Icon.chevR size={17} color={T.color.primaryDeep} />
+                  </button>
+                  <button
+                    onClick={() => setTodView(TOD_ORDER[Math.min(TOD_ORDER.length - 1, todIdx + 1)])}
+                    disabled={todIdx >= TOD_ORDER.length - 1}
+                    aria-label="זמן הבא"
+                    style={{
+                      background: 'none', border: 'none',
+                      cursor: todIdx >= TOD_ORDER.length - 1 ? 'default' : 'pointer',
+                      opacity: todIdx >= TOD_ORDER.length - 1 ? 0.25 : 1,
+                      padding: '4px 6px', display: 'flex', alignItems: 'center',
+                      WebkitTapHighlightColor: 'transparent',
+                      transform: 'scaleX(-1)',
+                    }}
+                  >
+                    <Icon.chevR size={17} color={T.color.primaryDeep} />
+                  </button>
+                </div>
               </div>
+
+              {routinesNow.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {routinesNow.map(r => (
+                    <RoutineTodayRow
+                      key={r.id}
+                      r={r}
+                      count={routineCountToday(r.id, routineLogs)}
+                      onTap={() => onLogRoutine(r.id, 1)}
+                      onMinus={() => onLogRoutine(r.id, -1)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  ...glassCard,
+                  padding: '16px', textAlign: 'center',
+                  color: T.color.textMuted, fontSize: 13.5,
+                }}>
+                  אין משימות קבועות ל{todMeta.short}
+                </div>
+              )}
             </>
           )}
 

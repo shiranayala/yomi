@@ -108,16 +108,6 @@ export interface Routine {
   createdAt: string; // YYYY-MM-DD
 }
 
-/** Persistent point counters for regular tasks.
- *  Routine points are derived from RoutineLog history, so only task points need storage.
- *  weekTaskPoints resets when weekStart no longer matches the current week. */
-export interface PointsStats {
-  id: string;             // always 'points'
-  totalTaskPoints: number;
-  weekStart: string;      // YYYY-MM-DD (Sunday)
-  weekTaskPoints: number;
-}
-
 /** Each tap on a daily block, or each completion of a weekly goal, writes one log row.
  *  date for daily = YYYY-MM-DD of that day; date for weekly = YYYY-MM-DD of Sunday (week start). */
 export interface RoutineLog {
