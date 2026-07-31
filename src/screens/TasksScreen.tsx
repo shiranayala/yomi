@@ -136,38 +136,43 @@ function PointsSection({ routines, routineLogs }: {
           }}>{weekTotal}</div>
         </div>
 
-        {/* Per-routine: name + times completed. Simple and clear. */}
+        {/* Per-routine: colored cards, name + big count side by side */}
         {weekly.length > 0 && (
           <>
             <div style={{ height: 1, background: T.color.line, margin: '14px 0' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
               {weekly.map(({ r, days }) => {
                 const ic = getRoutineIcon(r.iconKey);
                 const Icon_ = ic.icon;
                 return (
-                  <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div key={r.id} style={{
+                    position: 'relative', overflow: 'hidden',
+                    background: days > 0 ? ic.gradient : POINTS_DONE_GRADIENT,
+                    borderRadius: 16, padding: '12px 14px', color: '#fff',
+                    boxShadow: '0 1px 0 rgba(255,255,255,0.4) inset, 0 4px 12px rgba(155,125,212,0.14)',
+                  }}>
                     <span style={{
-                      width: 34, height: 34, borderRadius: 12, flexShrink: 0,
-                      background: days > 0 ? ic.gradient : POINTS_DONE_GRADIENT,
-                      color: '#fff',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      boxShadow: '0 2px 8px rgba(155,125,212,0.18)',
-                    }}>
-                      <Icon_ size={18} sw={2.2} />
-                    </span>
-                    <span style={{
-                      flex: 1, fontSize: 15.5, fontWeight: 700, color: T.color.text, minWidth: 0,
-                    }}>
-                      {r.title}
-                    </span>
-                    <span style={{
-                      fontFamily: 'Inter, sans-serif', fontSize: 17, fontWeight: 800,
-                      color: days > 0 ? T.color.primaryDeep : T.color.textMuted,
-                      direction: 'ltr', flexShrink: 0,
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                    }}>
-                      {days} <span style={{ fontSize: 14 }}>⭐</span>
-                    </span>
+                      position: 'absolute', top: -14, right: -14, width: 56, height: 56,
+                      background: 'radial-gradient(circle, rgba(255,255,255,0.45), transparent 70%)',
+                      pointerEvents: 'none',
+                    }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <Icon_ size={16} sw={2.2} />
+                      <span style={{
+                        fontSize: 13, fontWeight: 800, lineHeight: 1.2, flex: 1, minWidth: 0,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                      }}>{r.title}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 7 }}>
+                      <span style={{
+                        fontFamily: 'Inter, sans-serif', fontSize: 28, fontWeight: 800,
+                        lineHeight: 1, direction: 'ltr',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.12)',
+                      }}>{days}</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, opacity: 0.9 }}>
+                        {days === 1 ? 'פעם השבוע' : 'פעמים השבוע'}
+                      </span>
+                    </div>
                   </div>
                 );
               })}
