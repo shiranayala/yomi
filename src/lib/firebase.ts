@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import {
-  getFirestore, collection, doc,
-  getDocs, setDoc, updateDoc, deleteDoc,
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc,
+  getDocs, getDocsFromCache, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, type Firestore,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -21,11 +22,14 @@ if (apiKey && projectId) {
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId:             import.meta.env.VITE_FIREBASE_APP_ID,
   });
-  db   = getFirestore(app);
+  // Keep a copy of the data on the device so the app opens instantly
+  db   = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  });
   auth = getAuth(app);
 }
 
-export { db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, query };
+export { db, auth, collection, doc, getDocs, getDocsFromCache, setDoc, updateDoc, deleteDoc, onSnapshot, query };
 
 export type { User } from 'firebase/auth';
 export {

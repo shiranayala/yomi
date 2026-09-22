@@ -1,4 +1,4 @@
-const CACHE = 'yomi-v2';
+const CACHE = 'yomi-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -14,16 +14,20 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
-  // HTML navigation: network first, cache fallback (always get latest)
+  // HTML navigation: show the cached app instantly, refresh the cache in the background
+  // (a new deploy shows up on the next launch)
   if (e.request.mode === 'navigate') {
+    const network = fetch(e.request).then(res => {
+      if (res.ok) {
+        const copy = res.clone();
+        e.waitUntil(caches.open(CACHE).then(c => c.put('/', copy)));
+      }
+      return res;
+    });
     e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
-          return res;
-        })
-        .catch(() => caches.match('/'))
+      caches.match('/').then(cached => cached ?? network.catch(() => Response.error()))
     );
+    e.waitUntil(network.catch(() => {}));
     return;
   }
 

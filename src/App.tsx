@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { theme } from './theme';
 import { TabBar, type TabId } from './components/TabBar';
 import { BottomSheet } from './components/BottomSheet';
@@ -6,17 +6,45 @@ import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
 import { NoteEditor } from './components/NoteEditor';
 import { TodayScreen } from './screens/TodayScreen';
-import { TasksScreen } from './screens/TasksScreen';
-import { ShoppingScreen } from './screens/ShoppingScreen';
-import { NotesScreen } from './screens/NotesScreen';
-import { CalendarScreen } from './screens/CalendarScreen';
-import { RoutineScreen } from './screens/RoutineScreen';
-import { AuthScreen } from './screens/AuthScreen';
-import { VerifyEmailScreen } from './screens/VerifyEmailScreen';
-import { SettingsScreen } from './screens/SettingsScreen';
-import { WeatherScreen } from './screens/WeatherScreen';
+// Secondary screens load as separate chunks so the first paint is fast
+// If a chunk is missing (new version deployed), drop the cached page and reload once
+function retryImport<M>(f: () => Promise<M>): Promise<M> {
+  return f().catch(async err => {
+    let reloaded = false;
+    try { reloaded = sessionStorage.getItem('yomi-chunk-reload') === '1'; } catch { /* ignore */ }
+    if (reloaded) throw err;
+    try { sessionStorage.setItem('yomi-chunk-reload', '1'); } catch { /* ignore */ }
+    try { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } catch { /* ignore */ }
+    window.location.reload();
+    return new Promise<M>(() => {});
+  });
+}
+const loadTasks    = () => import('./screens/TasksScreen');
+const loadShopping = () => import('./screens/ShoppingScreen');
+const loadNotes    = () => import('./screens/NotesScreen');
+const loadCalendar = () => import('./screens/CalendarScreen');
+const loadRoutine  = () => import('./screens/RoutineScreen');
+const loadAuth     = () => import('./screens/AuthScreen');
+const loadVerify   = () => import('./screens/VerifyEmailScreen');
+const loadSettings = () => import('./screens/SettingsScreen');
+const loadWeather  = () => import('./screens/WeatherScreen');
+const TasksScreen       = lazy(() => retryImport(loadTasks).then(m => ({ default: m.TasksScreen })));
+const ShoppingScreen    = lazy(() => retryImport(loadShopping).then(m => ({ default: m.ShoppingScreen })));
+const NotesScreen       = lazy(() => retryImport(loadNotes).then(m => ({ default: m.NotesScreen })));
+const CalendarScreen    = lazy(() => retryImport(loadCalendar).then(m => ({ default: m.CalendarScreen })));
+const RoutineScreen     = lazy(() => retryImport(loadRoutine).then(m => ({ default: m.RoutineScreen })));
+const AuthScreen        = lazy(() => retryImport(loadAuth).then(m => ({ default: m.AuthScreen })));
+const VerifyEmailScreen = lazy(() => retryImport(loadVerify).then(m => ({ default: m.VerifyEmailScreen })));
+const SettingsScreen    = lazy(() => retryImport(loadSettings).then(m => ({ default: m.SettingsScreen })));
+const WeatherScreen     = lazy(() => retryImport(loadWeather).then(m => ({ default: m.WeatherScreen })));
+function prefetchScreens() {
+  [loadTasks, loadShopping, loadNotes, loadCalendar, loadRoutine, loadSettings, loadWeather]
+    .forEach(f => f().catch(() => {}));
+}
+
+export const REDIRECT_FLAG = 'yomi-google-redirect';
 import {
-  db, auth, collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
+  db, auth, collection, doc, getDocs, getDocsFromCache, setDoc, updateDoc, deleteDoc,
   onAuthStateChanged, authSignOut, getRedirectResult,
   type User,
 } from './lib/firebase';
@@ -43,7 +71,7 @@ function clean(data: object): object {
   return JSON.parse(JSON.stringify(data));
 }
 
-export default function App() {
+function AppInner() {
   // ── Auth ──────────────────────────────────────────────────────────
   const [authUser, setAuthUser] = useState<User | null | undefined>(undefined);
   const [reloadCount, setReloadCount] = useState(0);
@@ -56,10 +84,16 @@ export default function App() {
 
   useEffect(() => {
     if (!auth) return;
-    // Complete any pending Google redirect sign-in
-    getRedirectResult(auth)
-      .then(result => { if (result?.user) setAuthUser(result.user); })
-      .catch(e => console.error('redirect result:', e));
+    // Complete a pending Google redirect sign-in — only when we actually started one
+    // (calling this on every launch costs 1-3 seconds of network round trips)
+    let pendingRedirect = false;
+    try { pendingRedirect = sessionStorage.getItem(REDIRECT_FLAG) === '1'; } catch { /* ignore */ }
+    if (pendingRedirect) {
+      try { sessionStorage.removeItem(REDIRECT_FLAG); } catch { /* ignore */ }
+      getRedirectResult(auth)
+        .then(result => { if (result?.user) setAuthUser(result.user); })
+        .catch(e => console.error('redirect result:', e));
+    }
     return onAuthStateChanged(auth, u => setAuthUser(u));
   }, []);
 
@@ -83,6 +117,8 @@ export default function App() {
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
   const uid = authUser?.uid ?? null;
+  // true once fresh server data has arrived (cleanup jobs must not run on stale cache)
+  const [serverLoaded, setServerLoaded] = useState(false);
 
   // ── Firestore helpers (user-scoped) ──────────────────────────────
   function fsSet(col: string, id: string, data: object) {
@@ -104,21 +140,40 @@ export default function App() {
       setTasks([]); setEvents([]); setNotes([]); setShopping([]); setTags([]);
       return;
     }
+    let cancelled = false;
+    setServerLoaded(false);
+    // Show the locally cached copy instantly, then refresh from the server
     async function load<T>(col: string, setter: (v: T[]) => void) {
-      const snap = await getDocs(collection(db!, 'users', uid!, col));
-      setter(snap.docs.map(d => d.data() as T));
+      const ref = collection(db!, 'users', uid!, col);
+      try {
+        const cached = await getDocsFromCache(ref);
+        if (!cancelled && !cached.empty) setter(cached.docs.map(d => d.data() as T));
+      } catch { /* no cache yet */ }
+      const snap = await getDocs(ref);
+      if (!cancelled) setter(snap.docs.map(d => d.data() as T));
     }
-    load<Task>('tasks', setTasks);
-    load<ShoppingItem>('shopping', setShopping);
-    load<Note>('notes', setNotes);
-    load<CalEvent>('events', setEvents);
-    load<Tag>('tags', setTags);
-    load<Habit>('habits', setHabits);
-    load<HabitLog>('habitLogs', setHabitLogs);
-    load<ShoppingList>('shoppingLists', setShoppingLists);
-    load<Category>('categories', setUserCategories);
-    load<Routine>('routines', setRoutines);
-    load<RoutineLog>('routineLogs', setRoutineLogs);
+    const loads = [
+    load<Task>('tasks', setTasks),
+    load<ShoppingItem>('shopping', setShopping),
+    load<Note>('notes', setNotes),
+    load<CalEvent>('events', setEvents),
+    load<Tag>('tags', setTags),
+    load<Habit>('habits', setHabits),
+    load<HabitLog>('habitLogs', setHabitLogs),
+    load<ShoppingList>('shoppingLists', setShoppingLists),
+    load<Category>('categories', setUserCategories),
+    load<Routine>('routines', setRoutines),
+    load<RoutineLog>('routineLogs', setRoutineLogs),
+    ];
+    Promise.allSettled(loads).then(() => { if (!cancelled) setServerLoaded(true); });
+    return () => { cancelled = true; };
+  }, [uid]);
+
+  // Warm up the other screens in the background once the app is on screen
+  useEffect(() => {
+    if (!uid) return;
+    const t = setTimeout(prefetchScreens, 1500);
+    return () => clearTimeout(t);
   }, [uid]);
 
   // ── Task operations ───────────────────────────────────────────────
@@ -296,7 +351,7 @@ export default function App() {
   // Daily rollover: stale "today" tasks → done ones deleted, pending ones → overdue
   const taskRolloverDone = useRef(false);
   useEffect(() => {
-    if (taskRolloverDone.current || !tasks.length) return;
+    if (taskRolloverDone.current || !serverLoaded || !tasks.length) return;
     taskRolloverDone.current = true;
     const tStr = todayStr();
     const yesterday = (() => {
@@ -317,18 +372,18 @@ export default function App() {
         else { saveTask({ ...t, today: false, date: td }); }
       }
     });
-  }, [tasks]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tasks, serverLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shopCleanupDone = useRef(false);
   useEffect(() => {
-    if (shopCleanupDone.current || !shoppingLists.length) return;
+    if (shopCleanupDone.current || !serverLoaded || !shoppingLists.length) return;
     shopCleanupDone.current = true;
     const validIds = new Set(shoppingLists.map(l => l.id));
     const orphans = shopping.filter(s => s.listId && !validIds.has(s.listId));
     if (!orphans.length) return;
     setShopping(ss => ss.filter(s => !s.listId || validIds.has(s.listId)));
     orphans.forEach(s => fsDel('shopping', s.id));
-  }, [shopping, shoppingLists]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shopping, shoppingLists, serverLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Note operations ───────────────────────────────────────────────
   const saveNote = (note: Note) => {
@@ -591,15 +646,7 @@ export default function App() {
 
   // ── Loading ───────────────────────────────────────────────────────
   if (authUser === undefined) {
-    return (
-      <div style={{
-        height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
-        maxWidth: 480, margin: '0 auto',
-      }}>
-        <img src="/yomi-logo-horizontal-white.svg" alt="יומי" style={{ height: 56, opacity: 0.92 }} />
-      </div>
-    );
+    return <Splash />;
   }
 
   // ── Not authenticated ─────────────────────────────────────────────
@@ -883,5 +930,26 @@ export default function App() {
       )}
     </div>
     </CategoriesCtx.Provider>
+  );
+}
+
+
+function Splash() {
+  return (
+    <div style={{
+      height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: `linear-gradient(155deg, ${T.color.heroFrom} 0%, ${T.color.primaryDeep} 90%)`,
+      maxWidth: 480, margin: '0 auto',
+    }}>
+      <img src="/yomi-logo-horizontal-white.svg" alt="יומי" style={{ height: 56, opacity: 0.92 }} />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={<Splash />}>
+      <AppInner />
+    </Suspense>
   );
 }

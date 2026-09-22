@@ -82,6 +82,7 @@ export function AuthScreen() {
       if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
         // popup blocked — fall back to full-page redirect
         try {
+          try { sessionStorage.setItem('yomi-google-redirect', '1'); } catch { /* ignore */ }
           await signInWithRedirect(auth, provider);
         } catch {
           setLoading(false);
