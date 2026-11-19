@@ -161,7 +161,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
       s.horizontal = Math.abs(dx) > Math.abs(dy);
       if (!s.horizontal) { swipe.current = null; return; }
-      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     }
     s.dx = dx;
     const w = gridRef.current?.offsetWidth ?? 300;

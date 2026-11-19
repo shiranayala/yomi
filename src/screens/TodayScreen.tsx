@@ -7,6 +7,7 @@ import { getRoutineIcon, todayStrLocal } from '../lib/routineIcons';
 import { Check, Chip, AddRow, SectionHead, PointPop } from '../components/atoms';
 import { routineWeekPoints } from '../lib/points';
 import { Icon } from '../icons';
+import { SwipeRow } from '../components/SwipeRow';
 import { useWeather, type WeatherIconKey } from '../lib/useWeather';
 import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
 
@@ -272,6 +273,16 @@ function TimelineTaskCard({ t, onToggle, onClick }: {
   );
 }
 
+// Swipe left on a task → mark done / not done
+function doneSwipe(t: Task, onToggle: (id: string) => void) {
+  return {
+    label: t.done ? 'לא בוצע' : 'בוצע',
+    icon: <Icon.check size={18} color="#fff" sw={2.6} />,
+    color: '#5bb88a',
+    onTrigger: () => onToggle(t.id),
+  };
+}
+
 // Integrated timeline item — single glass card per entry, time inside on the
 // left (gradient), pill in middle, content on the right. No external column.
 function TimelineItem({ entry, onToggleTask, onEditEvent, onEditTask }: {
@@ -284,7 +295,11 @@ function TimelineItem({ entry, onToggleTask, onEditEvent, onEditTask }: {
     <div style={{ marginBottom: 9 }}>
       {entry.kind === 'event'
         ? <TimelineEventCard ev={entry.ev} onClick={() => onEditEvent(entry.ev, todayStr())} />
-        : <TimelineTaskCard  t={entry.t}  onToggle={onToggleTask} onClick={() => onEditTask(entry.t)} />
+        : (
+          <SwipeRow onSwipeLeft={doneSwipe(entry.t, onToggleTask)}>
+            <TimelineTaskCard t={entry.t} onToggle={onToggleTask} onClick={() => onEditTask(entry.t)} />
+          </SwipeRow>
+        )
       }
     </div>
   );
@@ -656,7 +671,9 @@ export function TodayScreen({ tasks, events, routines, routineLogs, onLogRoutine
           </SectionHead>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {generalToday.map(t => (
-              <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+              <SwipeRow key={t.id} onSwipeLeft={doneSwipe(t, onToggleTask)}>
+                <TaskItem t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} />
+              </SwipeRow>
             ))}
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
           </div>

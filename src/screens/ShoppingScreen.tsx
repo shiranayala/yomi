@@ -3,6 +3,7 @@ import { theme, softLine } from '../theme';
 import type { ShoppingItem, ShoppingList } from '../lib/types';
 import { Check, PageHeader, glassCard } from '../components/atoms';
 import { Icon } from '../icons';
+import { SwipeRow } from '../components/SwipeRow';
 
 const T = theme;
 
@@ -347,7 +348,25 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                 borderInlineStart: `3px solid ${selectedList.color || T.color.primary}`,
               }}>
                 {listItems.map((s, i) => (
-                  <div key={s.id} style={{
+                  <SwipeRow
+                    key={s.id}
+                    radius={0}
+                    rowBg="rgba(255,255,255,0.95)"
+                    onSwipeLeft={{
+                      label: s.done ? 'החזר לרשימה' : 'נקנה',
+                      icon: <Icon.check size={18} color="#fff" sw={2.6} />,
+                      color: '#5bb88a',
+                      onTrigger: () => onToggle(s.id),
+                    }}
+                    onSwipeRight={{
+                      label: 'מחיקה',
+                      icon: <Icon.trash size={17} color="#fff" sw={2.2} />,
+                      color: '#d9667a',
+                      onTrigger: () => onDelete([s.id]),
+                      leaves: true,
+                    }}
+                  >
+                  <div style={{
                     display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
                     opacity: s.done ? 0.45 : 1, transition: 'opacity .2s',
                     borderBottom: i < listItems.length - 1 ? '1px solid ' + T.color.line : 'none',
@@ -372,6 +391,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                       <Icon.x size={15} color={T.color.textMuted} />
                     </button>
                   </div>
+                  </SwipeRow>
                 ))}
               </div>
             )}

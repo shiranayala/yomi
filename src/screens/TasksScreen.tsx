@@ -8,6 +8,7 @@ import { getRoutineIcon } from '../lib/routineIcons';
 import { weekDates, countOn } from '../lib/points';
 import { Check, Chip, AddRow, SectionHead, PageHeader, glassCard, glassCardLarge } from '../components/atoms';
 import { Icon } from '../icons';
+import { SwipeRow } from '../components/SwipeRow';
 
 const T = theme;
 const OVERDUE_COLOR = '#e05c5c';
@@ -45,6 +46,22 @@ function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
   const cats = useCats();
   const recurring = t.recurrence && t.recurrence !== 'once';
   return (
+    <SwipeRow
+      listGap={9}
+      onSwipeLeft={{
+        label: t.done ? 'לא בוצע' : 'בוצע',
+        icon: <Icon.check size={18} color="#fff" sw={2.6} />,
+        color: '#5bb88a',
+        onTrigger: () => onToggle(t.id),
+      }}
+      onSwipeRight={onDefer && !recurring ? {
+        label: 'למחר',
+        icon: <Icon.arrowR size={17} color="#fff" sw={2.4} />,
+        color: '#e0a352',
+        onTrigger: onDefer,
+        leaves: true,
+      } : undefined}
+    >
     <div onClick={onClick} style={{
       ...glassCard,
       ...(overdue ? {
@@ -88,6 +105,7 @@ function TaskItem({ t, onToggle, onClick, onDefer, overdue }: {
         </button>
       )}
     </div>
+    </SwipeRow>
   );
 }
 
@@ -369,7 +387,7 @@ export function TasksScreen({ tasks, routines, routineLogs, onToggleTask, onAddT
                 <SectionHead color={OVERDUE_COLOR} sub={`${overdueTasks.length}`}>בפיגור</SectionHead>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {overdueTasks.map(t => (
-                    <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} overdue />
+                    <TaskItem key={t.id} t={t} onToggle={onToggleTask} onClick={() => onEditTask(t)} onDefer={() => onDeferTask(t.id)} overdue />
                   ))}
                 </div>
               </>
