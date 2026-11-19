@@ -160,7 +160,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
   shoppingLists: ShoppingList[];
   onToggle: (id: string) => void;
   onAdd: (title: string, listId: string) => void;
-  onDelete: (id: string) => void;
+  onDelete: (ids: string[]) => void;
   onAddList: (title: string, color: string) => string;
   onEditList: (id: string, title: string, color?: string) => void;
   onDeleteList: (id: string) => void;
@@ -362,7 +362,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                       }}
                     >{s.title}</span>
                     <button
-                      onClick={() => onDelete(s.id)}
+                      onClick={() => onDelete([s.id])}
                       style={{
                         border: 'none', background: 'transparent', cursor: 'pointer',
                         padding: 6, display: 'flex', alignItems: 'center',
@@ -378,7 +378,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
 
             {shopLeft > 0 && listItems.some(s => s.done) && (
               <button
-                onClick={() => listItems.filter(s => s.done).forEach(s => onDelete(s.id))}
+                onClick={() => onDelete(listItems.filter(s => s.done).map(s => s.id))}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
                   color: T.color.textMuted, fontSize: 13, fontFamily: T.fonts.body,

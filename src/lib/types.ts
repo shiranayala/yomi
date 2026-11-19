@@ -53,6 +53,7 @@ export interface Note {
   tone?: NoteTone; // legacy
   tags?: string[]; // tag IDs
   pinned: boolean;
+  order?: number;  // manual sort position (lower = higher up)
 }
 
 export interface CalEvent {

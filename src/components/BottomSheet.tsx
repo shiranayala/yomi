@@ -9,9 +9,11 @@ interface Props {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** short menus: size to content instead of half the screen */
+  compact?: boolean;
 }
 
-export function BottomSheet({ open, onClose, title, children }: Props) {
+export function BottomSheet({ open, onClose, title, children, compact }: Props) {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -42,7 +44,7 @@ export function BottomSheet({ open, onClose, title, children }: Props) {
       {/* Sheet */}
       <div style={{
         position: 'relative', width: '100%', maxWidth: 480,
-        maxHeight: '92dvh', minHeight: '50dvh',
+        maxHeight: '92dvh', minHeight: compact ? undefined : '50dvh',
         background: T.color.surface,
         borderRadius: '24px 24px 0 0',
         display: 'flex', flexDirection: 'column',
@@ -75,7 +77,7 @@ export function BottomSheet({ open, onClose, title, children }: Props) {
         </div>
 
         {/* Scrollable content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 40px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: compact ? '16px 20px 32px' : '20px 20px 40px' }}>
           {children}
         </div>
       </div>

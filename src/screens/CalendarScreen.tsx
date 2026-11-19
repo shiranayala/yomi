@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { theme, catColor } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
 import { weekdaysShort } from '../lib/data';
@@ -103,14 +103,86 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
     ...selTasks.map(t  => ({ kind: 'task'  as const, t,  time: t.time ?? '' })),
   ].sort((a, b) => a.time.localeCompare(b.time));
 
-  function prevMonth() {
-    if (month === 0) { setMonth(11); setYear(y => y - 1); }
-    else setMonth(m => m - 1);
+  function goToMonth(y: number, m: number) {
+    setYear(y); setMonth(m);
+    // On the current month jump to today, otherwise to the 1st
+    setSel(y === THIS_YEAR && m === THIS_MONTH ? TODAY_DAY : 1);
   }
-  function nextMonth() {
-    if (month === 11) { setMonth(0); setYear(y => y + 1); }
-    else setMonth(m => m + 1);
+  function shiftMonth(delta: number) {
+    const d = new Date(year, month + delta, 1);
+    goToMonth(d.getFullYear(), d.getMonth());
   }
+
+  // ── Swipe between months ──────────────────────────────────────────
+  // RTL: the next month sits to the left, so dragging right (dx > 0) brings it in.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const swipe = useRef<{ id: number; x0: number; y0: number; t0: number; dx: number; horizontal: boolean | null } | null>(null);
+  const animating = useRef(false);
+  const justSwiped = useRef(false);
+
+  function setGridStyle(transform: string, opacity: number, transition: string) {
+    const el = gridRef.current;
+    if (!el) return;
+    el.style.transition = transition;
+    el.style.transform = transform;
+    el.style.opacity = String(opacity);
+  }
+
+  /** Slide the grid out, switch month, slide the new one in. dir: +1 next, -1 previous. */
+  function slideMonth(dir: 1 | -1) {
+    if (animating.current) return;
+    const el = gridRef.current;
+    if (!el) { shiftMonth(dir); return; }
+    animating.current = true;
+    const w = el.offsetWidth;
+    const out = dir === 1 ? w : -w;
+    setGridStyle(`translateX(${out * 0.6}px)`, 0, 'transform .16s ease-in, opacity .16s ease-in');
+    setTimeout(() => {
+      shiftMonth(dir);
+      setGridStyle(`translateX(${-out * 0.6}px)`, 0, 'none');
+      // Let React paint the new month, then slide it in
+      setTimeout(() => {
+        void gridRef.current?.offsetWidth; // flush the jump before animating
+        setGridStyle('translateX(0)', 1, 'transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s ease-out');
+      }, 16);
+      setTimeout(() => { animating.current = false; }, 300);
+    }, 160);
+  }
+
+  function onSwipeDown(e: React.PointerEvent) {
+    if (animating.current || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    swipe.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, t0: Date.now(), dx: 0, horizontal: null };
+  }
+  function onSwipeMove(e: React.PointerEvent) {
+    const s = swipe.current;
+    if (!s || s.id !== e.pointerId) return;
+    const dx = e.clientX - s.x0, dy = e.clientY - s.y0;
+    if (s.horizontal === null) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      s.horizontal = Math.abs(dx) > Math.abs(dy);
+      if (!s.horizontal) { swipe.current = null; return; }
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    }
+    s.dx = dx;
+    const w = gridRef.current?.offsetWidth ?? 300;
+    setGridStyle(`translateX(${dx}px)`, 1 - Math.min(Math.abs(dx) / w, 1) * 0.5, 'none');
+  }
+  function onSwipeEnd(e: React.PointerEvent) {
+    const s = swipe.current;
+    if (!s || s.id !== e.pointerId) return;
+    swipe.current = null;
+    if (!s.horizontal) return;
+    justSwiped.current = true;
+    setTimeout(() => { justSwiped.current = false; }, 50);
+    const velocity = Math.abs(s.dx) / Math.max(1, Date.now() - s.t0); // px per ms
+    if (Math.abs(s.dx) > 60 || (Math.abs(s.dx) > 20 && velocity > 0.4)) {
+      slideMonth(s.dx > 0 ? 1 : -1);
+    } else {
+      setGridStyle('translateX(0)', 1, 'transform .22s cubic-bezier(.34,1.56,.64,1), opacity .2s');
+    }
+  }
+
+  const onThisMonth = month === THIS_MONTH && year === THIS_YEAR;
 
   return (
     <div style={{ paddingBottom: 100 }}>
@@ -120,19 +192,42 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
         titleSub={dateFormat === 'both' ? getHebrewMonthYear(new Date(year, month, 1)) : undefined}
         sub={selEvents.length > 0 ? `${selEvents.length} אירועים ב-${sel} בחודש` : undefined}
         action={
-          <div style={{ display: 'flex', gap: 8 }}>
-            <NavBtn onClick={prevMonth}><Icon.chevR size={18} color={T.color.text} /></NavBtn>
-            <NavBtn onClick={nextMonth}><Icon.chevL size={18} color={T.color.text} /></NavBtn>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {!(onThisMonth && sel === TODAY_DAY) && (
+              <button
+                onClick={() => goToMonth(THIS_YEAR, THIS_MONTH)}
+                style={{
+                  height: 36, padding: '0 12px', borderRadius: 12, border: 'none',
+                  background: T.color.primarySoft, color: T.color.primaryDeep,
+                  fontSize: 13.5, fontWeight: 800, fontFamily: T.fonts.body, cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent',
+                  animation: 'yomiFadeIn .2s ease-out',
+                }}
+              >היום</button>
+            )}
+            <NavBtn onClick={() => slideMonth(-1)}><Icon.chevR size={18} color={T.color.text} /></NavBtn>
+            <NavBtn onClick={() => slideMonth(1)}><Icon.chevL size={18} color={T.color.text} /></NavBtn>
+            <style>{`@keyframes yomiFadeIn { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }`}</style>
           </div>
         }
       />
       <div style={{ padding: '0 16px' }}>
 
       {/* Calendar grid */}
-      <div style={{
-        ...glassCardLarge,
-        padding: '14px 12px 16px',
-      }}>
+      <div
+        onPointerDown={onSwipeDown}
+        onPointerMove={onSwipeMove}
+        onPointerUp={onSwipeEnd}
+        onPointerCancel={onSwipeEnd}
+        onClickCapture={e => { if (justSwiped.current) { e.stopPropagation(); e.preventDefault(); } }}
+        style={{
+          ...glassCardLarge,
+          padding: '14px 12px 16px',
+          overflow: 'hidden', touchAction: 'pan-y',
+          userSelect: 'none', WebkitUserSelect: 'none',
+        }}
+      >
+      <div ref={gridRef} style={{ willChange: 'transform' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 6 }}>
           {weekdaysShort.map((d, i) => (
             <div key={i} style={{ textAlign: 'center', fontSize: 11.5, fontWeight: 700, color: T.color.textMuted, padding: '4px 0' }}>{d}</div>
@@ -180,6 +275,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
             );
           })}
         </div>
+      </div>
       </div>
 
       {/* Selected day */}

@@ -14,7 +14,8 @@ interface Props {
   onSave: (n: Note) => void;
   onSaveTag: (tag: Tag) => void;
   onDeleteTag: (id: string) => void;
-  onDelete: (id: string) => void;
+  /** silent = an empty note discarded on close (no undo message) */
+  onDelete: (id: string, silent?: boolean) => void;
   onClose: () => void;
 }
 
@@ -94,7 +95,7 @@ export function NoteEditor({ note, allTags, onSave, onSaveTag, onDeleteTag, onDe
   function handleClose() {
     clearTimeout(timerRef.current);
     if (!title.trim() && !body.trim()) {
-      onDelete(note.id);
+      onDelete(note.id, true);
     } else {
       onSave({ ...note, title, body, pinned, tags: localTags });
     }

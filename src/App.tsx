@@ -53,6 +53,8 @@ import { todayStr } from './lib/recurrence';
 import { weekStartStr, todayStrLocal } from './lib/routineIcons';
 import { CategoriesCtx, DEFAULT_CATEGORIES, pastelForCategoryId } from './lib/CategoriesContext';
 import type { DateFormat } from './lib/dateFormat';
+import { topNoteOrder } from './lib/noteOrder';
+import { UndoToast, type UndoToastState } from './components/UndoToast';
 
 const T = theme;
 
@@ -134,6 +136,19 @@ function AppInner() {
     deleteDoc(doc(db, 'users', uid, col, id));
   }
 
+  // ── Undo after delete ─────────────────────────────────────────────
+  const [toast, setToast] = useState<UndoToastState | null>(null);
+  const showUndo = (message: string, undo: () => void) =>
+    setToast({ key: Date.now(), message, undo });
+  /** Put items back (insert or replace by id) in state and in Firestore. */
+  function restore<X extends { id: string }>(
+    setter: React.Dispatch<React.SetStateAction<X[]>>, col: string, items: X[],
+  ) {
+    const ids = new Set(items.map(i => i.id));
+    setter(xs => [...xs.filter(x => !ids.has(x.id)), ...items]);
+    items.forEach(i => fsSet(col, i.id, i));
+  }
+
   // ── Load data when user changes ───────────────────────────────────
   useEffect(() => {
     if (!uid || !db) {
@@ -194,6 +209,12 @@ function AppInner() {
   const deleteTask = (id: string) => {
     setTasks(ts => ts.filter(t => t.id !== id));
     fsDel('tasks', id);
+  };
+
+  const deleteTaskWithUndo = (id: string) => {
+    const t = tasks.find(x => x.id === id);
+    deleteTask(id);
+    if (t) showUndo('המשימה נמחקה', () => restore(setTasks, 'tasks', [t]));
   };
 
   const quickAddTask = (title: string) => {
@@ -267,6 +288,7 @@ function AppInner() {
       return;
     }
     deleteEvent(id);
+    if (ev) showUndo('האירוע נמחק', () => restore(setEvents, 'events', [ev]));
     closeForm();
   };
 
@@ -291,6 +313,7 @@ function AppInner() {
         const updated = { ...original, excludeDates: [...(original.excludeDates ?? []), pendingEventOp.occurrenceDate] };
         setEvents(evs => evs.map(e => e.id === original.id ? updated : e));
         fsSet('events', original.id, updated);
+        showUndo('האירוע נמחק', () => restore(setEvents, 'events', [original]));
       }
     }
     setPendingEventOp(null);
@@ -301,7 +324,9 @@ function AppInner() {
     if (pendingEventOp.kind === 'save') {
       saveEvent(pendingEventOp.ev);
     } else {
+      const original = events.find(x => x.id === pendingEventOp.id);
       deleteEvent(pendingEventOp.id);
+      if (original) showUndo('הסדרה נמחקה', () => restore(setEvents, 'events', [original]));
     }
     setPendingEventOp(null);
   };
@@ -335,16 +360,28 @@ function AppInner() {
   };
 
   const deleteShopList = (id: string) => {
+    const list = shoppingLists.find(l => l.id === id);
     setShoppingLists(ls => ls.filter(l => l.id !== id));
     fsDel('shoppingLists', id);
     const toDelete = shopping.filter(s => s.listId === id);
     setShopping(ss => ss.filter(s => s.listId !== id));
     toDelete.forEach(s => fsDel('shopping', s.id));
+    if (list) showUndo('הרשימה נמחקה', () => {
+      restore(setShoppingLists, 'shoppingLists', [list]);
+      restore(setShopping, 'shopping', toDelete);
+    });
   };
 
-  const deleteShop = (id: string) => {
-    setShopping(ss => ss.filter(s => s.id !== id));
-    fsDel('shopping', id);
+  /** Delete one or more shopping items, with a single undo for all of them. */
+  const deleteShopItems = (ids: string[]) => {
+    const idSet = new Set(ids);
+    const removed = shopping.filter(s => idSet.has(s.id));
+    setShopping(ss => ss.filter(s => !idSet.has(s.id)));
+    ids.forEach(id => fsDel('shopping', id));
+    if (removed.length) {
+      showUndo(removed.length === 1 ? 'הפריט נמחק' : `${removed.length} פריטים נמחקו`,
+        () => restore(setShopping, 'shopping', removed));
+    }
   };
 
   // One-time cleanup of orphaned shopping items (items whose list was deleted)
@@ -398,14 +435,35 @@ function AppInner() {
     const newNote: Note = {
       id: 'nn' + genId(),
       title: '', body: '', tone: 'plain', pinned: false,
+      order: topNoteOrder(notes),
     };
     saveNote(newNote);
     setEditingNote(newNote);
   };
 
-  const deleteNote = (id: string) => {
+  const deleteNote = (id: string, silent = false) => {
+    const n = notes.find(x => x.id === id);
     setNotes(ns => ns.filter(n => n.id !== id));
     fsDel('notes', id);
+    if (n && !silent) showUndo('הפתק נמחק', () => restore(setNotes, 'notes', [n]));
+  };
+
+  const toggleNotePin = (id: string) => {
+    const n = notes.find(x => x.id === id);
+    if (n) saveNote({ ...n, pinned: !n.pinned });
+  };
+
+  /** Save a new manual order (ids from top to bottom). */
+  const reorderNotes = (orderedIds: string[]) => {
+    const pos = new Map(orderedIds.map((id, i) => [id, i]));
+    notes.forEach(n => {
+      const order = pos.get(n.id);
+      if (order !== undefined && n.order !== order) fsUpdate('notes', n.id, { order });
+    });
+    setNotes(ns => ns.map(n => {
+      const order = pos.get(n.id);
+      return order === undefined || n.order === order ? n : { ...n, order };
+    }));
   };
 
   // ── Tag operations ────────────────────────────────────────────────
@@ -738,7 +796,7 @@ function AppInner() {
             shoppingLists={shoppingLists}
             onToggle={toggleShop}
             onAdd={addShop}
-            onDelete={deleteShop}
+            onDelete={deleteShopItems}
             onAddList={addShopList}
             onEditList={editShopList}
             onDeleteList={deleteShopList}
@@ -750,6 +808,9 @@ function AppInner() {
             tags={tags}
             onAdd={openNewNote}
             onEdit={n => setEditingNote(n)}
+            onDelete={id => deleteNote(id)}
+            onTogglePin={toggleNotePin}
+            onReorder={reorderNotes}
           />
         )}
         {tab === 'calendar' && (
@@ -848,7 +909,7 @@ function AppInner() {
             onSave={saveNote}
             onSaveTag={saveTag}
             onDeleteTag={deleteTag}
-            onDelete={id => { deleteNote(id); setEditingNote(null); }}
+            onDelete={(id, silent) => { deleteNote(id, silent); setEditingNote(null); }}
             onClose={() => setEditingNote(null)}
           />
         </div>
@@ -867,7 +928,7 @@ function AppInner() {
               saveTask(t.today ? { ...t, todayDate: todayStr() } : t);
               closeForm();
             }}
-            onDelete={form.kind === 'editTask' ? (id => { deleteTask(id); closeForm(); }) : undefined}
+            onDelete={form.kind === 'editTask' ? (id => { deleteTaskWithUndo(id); closeForm(); }) : undefined}
             onClose={closeForm}
           />
         )}
@@ -888,6 +949,8 @@ function AppInner() {
           />
         )}
       </BottomSheet>
+
+      <UndoToast toast={toast} onDismiss={() => setToast(null)} />
 
       {/* Recurring event scope dialog */}
       {pendingEventOp && (
