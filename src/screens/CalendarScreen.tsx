@@ -215,6 +215,7 @@ export function CalendarScreen({ events, tasks, dateFormat, onEditEvent, onEditT
 
       {/* Calendar grid */}
       <div
+        data-swipe-lock="both"
         onPointerDown={onSwipeDown}
         onPointerMove={onSwipeMove}
         onPointerUp={onSwipeEnd}

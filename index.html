@@ -74,12 +74,16 @@
         transition: transform .12s ease, filter .12s ease;
       }
       /* Press feedback. Inline transforms (FAB etc.) win over this, so they are untouched. */
-      button:not(:disabled):active, [role="button"]:active { transform: scale(0.96); filter: brightness(0.96); }
+      button:not(:disabled):active, [role="button"]:active { transform: scale(0.94); filter: brightness(0.94); }
+
+      @keyframes yomi-fade-in { from { opacity: 0 } to { opacity: 1 } }
+      /* Sheets that are centred with translateX(-50%) */
+      @keyframes yomi-sheet-up { from { transform: translate(-50%, 100%) } to { transform: translate(-50%, 0) } }
 
       /* Tab change: content slides in from the side of the tapped tab */
-      .yomi-tab-in { animation: yomi-tab-in .24s cubic-bezier(.2,.8,.2,1); }
-      .yomi-tab-in.from-right { --tab-from: 18px; }
-      .yomi-tab-in.from-left  { --tab-from: -18px; }
+      .yomi-tab-in { animation: yomi-tab-in .3s cubic-bezier(.2,.8,.2,1); }
+      .yomi-tab-in.from-right { --tab-from: 56px; }
+      .yomi-tab-in.from-left  { --tab-from: -56px; }
       @keyframes yomi-tab-in {
         from { opacity: 0; transform: translateX(var(--tab-from, 0)); }
         to   { opacity: 1; transform: none; }

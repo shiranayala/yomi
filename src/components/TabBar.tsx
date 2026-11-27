@@ -30,7 +30,23 @@ export function TabBar({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void
       WebkitBackdropFilter: 'blur(24px) saturate(160%)',
       borderTop: '1px solid rgba(155,125,212,0.10)',
       boxShadow: '0 -6px 22px rgba(155,125,212,0.08)',
+      position: 'relative',
     }}>
+      {/* One indicator that slides to the active tab (RTL: index 0 is on the right) */}
+      <div aria-hidden style={{ position: 'absolute', top: 6, bottom: 0, left: 4, right: 4, pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute', top: 0, height: 50,
+          width: `${100 / TABS.length}%`,
+          right: `${(TAB_ORDER.indexOf(tab) * 100) / TABS.length}%`,
+          transition: 'right .32s cubic-bezier(.34,1.3,.64,1)',
+          display: 'flex', justifyContent: 'center',
+        }}>
+          <div style={{
+            width: 52, height: '100%', borderRadius: 16,
+            background: 'rgba(155,125,212,0.13)',
+          }} />
+        </div>
+      </div>
       {TABS.map(({ id, label, icon: Ic }) => {
         const active = tab === id;
         return (
@@ -43,19 +59,17 @@ export function TabBar({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void
             transition: 'color .2s',
             minWidth: 0,
           }}>
-            {/* Accent line at top when active */}
-            {active && (
-              <span style={{
-                position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-                width: 24, height: 3, borderRadius: 99,
-                background: `linear-gradient(90deg, ${T.color.primary}, ${T.color.heroFrom})`,
-              }} />
-            )}
-            <Ic
-              size={21}
-              color={active ? T.color.primaryDeep : T.color.textMuted}
-              sw={active ? 2.2 : 1.7}
-            />
+            <span style={{
+              display: 'flex',
+              transform: active ? 'translateY(-1px) scale(1.12)' : 'none',
+              transition: 'transform .3s cubic-bezier(.34,1.56,.64,1)',
+            }}>
+              <Ic
+                size={21}
+                color={active ? T.color.primaryDeep : T.color.textMuted}
+                sw={active ? 2.2 : 1.7}
+              />
+            </span>
             <span style={{
               fontSize: 10, fontWeight: active ? 800 : 600,
               fontFamily: T.fonts.body,

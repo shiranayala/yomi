@@ -10,6 +10,7 @@ import {
 } from '../lib/routineIcons';
 import { PageHeader, glassCardLarge } from '../components/atoms';
 import { Icon } from '../icons';
+import { useSheetDrag } from '../lib/useSheetDrag';
 
 const T = theme;
 const DAY_NAMES_SHORT = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -362,17 +363,21 @@ function Stepper({ value, onChange, min = 1, max = 99 }: {
 // ── Sheet wrapper ────────────────────────────────────────────────────
 
 function Sheet({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+  const drag = useSheetDrag(onClose);
   return (
     <>
-      <div onClick={onClose} style={{
+      <div onClick={drag.close} style={{
         position: 'fixed', inset: 0, zIndex: 60,
         background: 'rgba(0,0,0,0.35)',
+        animation: 'yomi-fade-in .2s ease',
+        opacity: drag.backdropOpacity, transition: drag.backdropTransition,
       }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+      <div ref={drag.sheetRef} style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: `translate(-50%, ${drag.offset})`,
+        transition: drag.transition, animation: 'yomi-sheet-up .28s cubic-bezier(0.32,0.72,0,1)',
         width: '100%', maxWidth: 480, zIndex: 61,
         background: T.color.surface, borderRadius: '24px 24px 0 0',
-        padding: '14px 18px 36px', maxHeight: '88dvh', overflowY: 'auto',
+        padding: '14px 18px 36px', maxHeight: '88dvh', overflowY: 'auto', overscrollBehavior: 'contain',
         direction: 'rtl', boxShadow: `0 -8px 32px ${T.color.primary}33`,
       }}>
         <div style={{
@@ -384,7 +389,7 @@ function Sheet({ children, onClose, title }: { children: React.ReactNode; onClos
             fontFamily: T.fonts.heading, fontSize: 20, fontWeight: 800,
             letterSpacing: '-0.4px', color: T.color.text,
           }}>{title}</div>
-          <button onClick={onClose} style={{
+          <button onClick={drag.close} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: T.color.textMuted, fontSize: 22, padding: 4, lineHeight: 1,
           }}>✕</button>
@@ -896,15 +901,19 @@ function ScheduleModal({ routine, onClose, onSchedule }: {
   const [time, setTime] = useState('09:00');
   const ic = getRoutineIcon(routine.iconKey);
   const Icon_ = ic.icon;
+  const drag = useSheetDrag(onClose);
 
   return (
     <>
-      <div onClick={onClose} style={{
+      <div onClick={drag.close} style={{
         position: 'fixed', inset: 0, zIndex: 60,
         background: 'rgba(0,0,0,0.35)',
+        animation: 'yomi-fade-in .2s ease',
+        opacity: drag.backdropOpacity, transition: drag.backdropTransition,
       }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+      <div ref={drag.sheetRef} style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: `translate(-50%, ${drag.offset})`,
+        transition: drag.transition, animation: 'yomi-sheet-up .28s cubic-bezier(0.32,0.72,0,1)',
         width: '100%', maxWidth: 480, zIndex: 61,
         background: T.color.surface, borderRadius: '24px 24px 0 0',
         padding: '14px 18px 36px', direction: 'rtl',
@@ -931,7 +940,7 @@ function ScheduleModal({ routine, onClose, onSchedule }: {
               letterSpacing: '-0.4px', color: T.color.text,
             }}>{routine.title}</div>
           </div>
-          <button onClick={onClose} style={{
+          <button onClick={drag.close} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: T.color.textMuted, fontSize: 22, padding: 4, lineHeight: 1,
           }}>✕</button>

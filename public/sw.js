@@ -1,4 +1,4 @@
-const CACHE = 'yomi-v3';
+const CACHE = 'yomi-v4';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -17,10 +17,18 @@ self.addEventListener('fetch', e => {
   // HTML navigation: show the cached app instantly, refresh the cache in the background
   // (a new deploy shows up on the next launch)
   if (e.request.mode === 'navigate') {
-    const network = fetch(e.request).then(res => {
+    const network = fetch(e.request).then(async res => {
       if (res.ok) {
-        const copy = res.clone();
-        e.waitUntil(caches.open(CACHE).then(c => c.put('/', copy)));
+        const fresh = await res.clone().text();
+        const cache = await caches.open(CACHE);
+        const old = await cache.match('/');
+        const oldText = old ? await old.text() : null;
+        await cache.put('/', res.clone());
+        // A new deploy: tell the page, which reloads if it was only just opened
+        if (oldText !== null && oldText !== fresh) {
+          const clients = await self.clients.matchAll({ type: 'window' });
+          clients.forEach(c => c.postMessage({ type: 'yomi-new-version' }));
+        }
       }
       return res;
     });

@@ -59,7 +59,9 @@ export function SwipeRow({ children, onSwipeLeft, onSwipeRight, radius = T.radiu
     if (s.horizontal === null) {
       if (Math.abs(rawX) < 8 && Math.abs(rawY) < 8) return;
       s.horizontal = Math.abs(rawX) > Math.abs(rawY) * 1.2;
-      if (!s.horizontal) { g.current = null; return; }
+      // Not sideways, or sideways in a direction with no action: leave it to
+      // the page (scrolling / swiping between tabs)
+      if (!s.horizontal || !actionFor(rawX)) { g.current = null; return; }
       suppressClick.current = true;
       try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* pointer already gone */ }
     }
@@ -110,6 +112,8 @@ export function SwipeRow({ children, onSwipeLeft, onSwipeRight, radius = T.radiu
   return (
     <div
       ref={wrap}
+      // Tell the tab swipe which finger directions this row uses
+      data-swipe-lock={onSwipeLeft && onSwipeRight ? 'both' : onSwipeLeft ? 'left' : onSwipeRight ? 'right' : undefined}
       style={{
         position: 'relative', touchAction: 'pan-y',
         // Collapse smoothly once the row has slid away

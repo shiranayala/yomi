@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { theme, softLine } from '../theme';
 import { Icon } from '../icons';
+import { useSheetDrag } from '../lib/useSheetDrag';
 import type { Habit, HabitLog } from '../lib/types';
 import { calcStreak } from '../lib/habitStreak';
 import { glassCard } from './atoms';
@@ -81,17 +82,22 @@ function ManagerOverlay({ habits, onClose, onAdd, onEdit, onDelete }: {
     setEditingId(null);
   };
 
+  const drag = useSheetDrag(onClose);
+
   return (
     <>
-      <div onClick={onClose} style={{
+      <div onClick={drag.close} style={{
         position: 'fixed', inset: 0, zIndex: 60,
         background: 'rgba(0,0,0,0.35)',
+        animation: 'yomi-fade-in .2s ease',
+        opacity: drag.backdropOpacity, transition: drag.backdropTransition,
       }} />
-      <div style={{
-        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+      <div ref={drag.sheetRef} style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: `translate(-50%, ${drag.offset})`,
+        transition: drag.transition, animation: 'yomi-sheet-up .28s cubic-bezier(0.32,0.72,0,1)',
         width: '100%', maxWidth: 480, zIndex: 61,
         background: T.color.bg, borderRadius: '24px 24px 0 0',
-        padding: '16px 18px 40px', maxHeight: '80dvh', overflowY: 'auto',
+        padding: '16px 18px 40px', maxHeight: '80dvh', overflowY: 'auto', overscrollBehavior: 'contain',
         direction: 'rtl',
       }}>
         <div style={{
@@ -106,7 +112,7 @@ function ManagerOverlay({ habits, onClose, onAdd, onEdit, onDelete }: {
           }}>
             ניהול הרגלים
           </div>
-          <button onClick={onClose} style={{
+          <button onClick={drag.close} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: T.color.textMuted, fontSize: 20, padding: 4, lineHeight: 1,
           }}>✕</button>

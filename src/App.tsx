@@ -700,16 +700,117 @@ function AppInner() {
 
   // ── Tab change: close FAB, start at the top, slide in from the tab's side ──
   const scrollRef = useRef<HTMLDivElement>(null);
-  const prevTabRef = useRef<TabId>(tab);
+  const tabContentRef = useRef<HTMLDivElement>(null);
   const [tabDir, setTabDir] = useState<'from-left' | 'from-right'>('from-left');
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
+  /** Switch tab; the new content slides in from that tab's side (RTL: later tabs sit to the left). */
+  const goTab = (next: TabId) => {
+    if (next === tabRef.current) return;
+    setTabDir(TAB_ORDER.indexOf(next) > TAB_ORDER.indexOf(tabRef.current) ? 'from-left' : 'from-right');
+    setTab(next);
+  };
+  const goTabRef = useRef(goTab);
+  goTabRef.current = goTab;
   useEffect(() => {
     setFabOpen(false);
-    const prev = TAB_ORDER.indexOf(prevTabRef.current), next = TAB_ORDER.indexOf(tab);
-    prevTabRef.current = tab;
-    // RTL: tabs further along the bar sit further to the left
-    setTabDir(next > prev ? 'from-left' : 'from-right');
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [tab]);
+
+  // ── Swipe sideways on the page to move between tabs ──
+  // The page follows the finger; let go past ~25% (or flick) to switch.
+  // Areas with their own sideways gesture opt out with data-swipe-lock
+  // ("both", or "left"/"right" for the finger direction they use).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let s: { x0: number; y0: number; t0: number; lastX: number; lastT: number; on: boolean | null; lock: string } | null = null;
+    const content = () => tabContentRef.current;
+
+    const scrollsSideways = (from: HTMLElement) => {
+      for (let n: HTMLElement | null = from; n && n !== el; n = n.parentElement) {
+        if (n.scrollWidth > n.clientWidth + 2) {
+          const ox = getComputedStyle(n).overflowX;
+          if (ox === 'auto' || ox === 'scroll') return true;
+        }
+      }
+      return false;
+    };
+    const neighbor = (dx: number) => {
+      const i = TAB_ORDER.indexOf(tabRef.current) + (dx > 0 ? 1 : -1); // finger right → next tab
+      return TAB_ORDER[i];
+    };
+
+    const start = (e: TouchEvent) => {
+      if (e.touches.length !== 1) { s = null; return; }
+      const target = e.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (scrollsSideways(target)) return;
+      const lock = target.closest<HTMLElement>('[data-swipe-lock]')?.dataset.swipeLock ?? '';
+      if (lock === 'both') return;
+      const t = e.touches[0];
+      s = { x0: t.clientX, y0: t.clientY, t0: performance.now(), lastX: t.clientX, lastT: performance.now(), on: null, lock };
+    };
+    const move = (e: TouchEvent) => {
+      if (!s) return;
+      const t = e.touches[0];
+      const dx = t.clientX - s.x0, dy = t.clientY - s.y0;
+      if (s.on === null) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        const sideways = Math.abs(dx) > Math.abs(dy) * 1.4;
+        const longPress = performance.now() - s.t0 > 350; // notes drag etc.
+        const locked = (dx < 0 && s.lock === 'left') || (dx > 0 && s.lock === 'right');
+        if (!sideways || longPress || locked) { s = null; return; }
+        s.on = true;
+      }
+      e.preventDefault();
+      s.lastX = t.clientX; s.lastT = performance.now();
+      const w = el.clientWidth;
+      const d = neighbor(dx) ? dx : dx * 0.25; // rubber band at the ends
+      const c = content();
+      if (c) {
+        c.style.transition = 'none';
+        c.style.transform = `translateX(${d}px)`;
+        c.style.opacity = String(1 - Math.min(1, Math.abs(d) / w) * 0.5);
+      }
+    };
+    const end = () => {
+      if (!s) return;
+      const st = s; s = null;
+      if (!st.on) return;
+      const c = content();
+      const dx = st.lastX - st.x0;
+      const v = Math.abs(dx) / Math.max(1, st.lastT - st.t0);
+      const next = neighbor(dx);
+      const w = el.clientWidth;
+      if (next && (Math.abs(dx) > w * 0.25 || (Math.abs(dx) > 40 && v > 0.45))) {
+        if (c) {
+          c.style.transition = 'transform .16s ease-in, opacity .16s';
+          c.style.transform = `translateX(${dx > 0 ? w * 0.6 : -w * 0.6}px)`;
+          c.style.opacity = '0';
+        }
+        haptic('select');
+        setTimeout(() => goTabRef.current(next), 150);
+      } else if (c) {
+        c.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1), opacity .22s';
+        c.style.transform = 'translateX(0)';
+        c.style.opacity = '1';
+        // Clear the transform afterwards so position:fixed children work again
+        setTimeout(() => { c.style.transform = ''; c.style.transition = ''; c.style.opacity = ''; }, 240);
+      }
+    };
+
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+    return () => {
+      el.removeEventListener('touchstart', start);
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', end);
+      el.removeEventListener('touchcancel', end);
+    };
+  }, [authUser, showWeather, reloadCount]);
 
   // ── Back button (Android / PWA) ───────────────────────────────────
   useEffect(() => {
@@ -789,8 +890,8 @@ function AppInner() {
       fontFamily: T.fonts.body, WebkitFontSmoothing: 'antialiased',
       maxWidth: 480, margin: '0 auto', position: 'relative',
     }}>
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        <div key={tab} className={`yomi-tab-in ${tabDir}`}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', touchAction: 'pan-y' }}>
+        <div key={tab} ref={tabContentRef} className={`yomi-tab-in ${tabDir}`}>
         {tab === 'today' && (
           <TodayScreen
             tasks={tasks} events={events}
@@ -871,7 +972,7 @@ function AppInner() {
         </div>
       </div>
 
-      <TabBar tab={tab} setTab={setTab} />
+      <TabBar tab={tab} setTab={goTab} />
 
       {/* FAB */}
       {(tab === 'today' || tab === 'tasks') && (
