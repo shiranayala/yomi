@@ -99,7 +99,7 @@ export function BottomSheet({ open, onClose, title, children, compact, headerAct
 
         {/* Scrollable content */}
         <div ref={drag.scrollRef} style={{
-          flex: 1, overflowY: 'auto', overscrollBehavior: 'contain',
+          flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain',
           padding: compact ? '16px 20px 32px' : '20px 20px 40px',
         }}>
           {children}

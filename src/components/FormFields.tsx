@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { theme } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
+import { Icon } from '../icons';
 import type { Reminder, Recurrence } from '../lib/types';
 
 const T = theme;
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1.5px solid ' + T.color.line,
+  width: '100%', minWidth: 0, border: '1.5px solid ' + T.color.line,
   borderRadius: T.radius.tile, padding: '11px 14px',
   fontSize: 15, color: T.color.text, background: T.color.bg,
   outline: 'none', fontFamily: T.fonts.body,
@@ -208,4 +209,98 @@ export function RecurrencePicker({ value, onChange }: { value: Recurrence; onCha
 
 export function Divider() {
   return <div style={{ height: 1, background: T.color.line, margin: '4px 0 18px' }} />;
+}
+
+// ── Category: one row that opens the choices ─────────────────────────
+
+export function CategorySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const cats = useCats();
+  const [open, setOpen] = useState(false);
+  const current = cats[value];
+
+  const choice = (id: string, label: string, color: string | null) => {
+    const active = id === value;
+    return (
+      <button key={id || 'none'} type="button" onClick={() => { onChange(id); setOpen(false); }} style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '6px 12px', borderRadius: 99,
+        border: active ? `2px solid ${color ?? T.color.primary}` : '1.5px solid transparent',
+        background: active ? (color ?? T.color.primary) + '22' : T.color.surfaceAlt,
+        color: active ? (color ?? T.color.primaryDeep) : T.color.textMuted,
+        fontSize: 13, fontWeight: active ? 700 : 500,
+        cursor: 'pointer', fontFamily: T.fonts.body,
+      }}>
+        {color
+          ? <span style={{ width: 8, height: 8, borderRadius: 99, background: color }} />
+          : <span style={{ width: 8, height: 8, borderRadius: 99, border: '1.5px solid ' + T.color.textMuted }} />}
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)} style={rowButton}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {current
+            ? <span style={{ width: 10, height: 10, borderRadius: 99, background: current.color }} />
+            : <span style={{ width: 10, height: 10, borderRadius: 99, border: '1.5px solid ' + T.color.textMuted }} />}
+          <span style={{ color: current ? T.color.text : T.color.textMuted }}>
+            {current ? current.label : 'ללא קטגוריה'}
+          </span>
+        </span>
+        <Chevron open={open} />
+      </button>
+      {open && (
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 10 }}>
+          {choice('', 'ללא', null)}
+          {Object.values(cats).map(c => choice(c.id, c.label, c.color))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const rowButton: React.CSSProperties = {
+  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  border: '1.5px solid ' + T.color.line, borderRadius: T.radius.tile,
+  padding: '11px 14px', background: T.color.bg, cursor: 'pointer',
+  fontSize: 15, fontFamily: T.fonts.body, textAlign: 'right',
+};
+
+export function Chevron({ open }: { open: boolean }) {
+  return (
+    <span style={{ display: 'inline-flex', transform: open ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .2s' }}>
+      <Icon.chevR size={14} color={T.color.textMuted} />
+    </span>
+  );
+}
+
+/** Compact save button that stays at the bottom of the sheet while scrolling. */
+export function SaveBar({ valid, onSave, label }: { valid: boolean; onSave: () => void; label: string }) {
+  return (
+    <div style={{
+      // bottom -40 cancels the sheet's bottom padding, which sticky positioning respects
+      position: 'sticky', bottom: -40, margin: '8px -20px -40px', padding: '12px 20px 28px',
+      background: `linear-gradient(to top, ${T.color.surface} 75%, ${T.color.surface}00)`,
+      display: 'flex', justifyContent: 'center',
+    }}>
+      <button
+        onClick={onSave}
+        disabled={!valid}
+        style={{
+          border: 'none', borderRadius: 99, padding: '11px 34px', minWidth: 150,
+          background: valid ? T.color.primary : T.color.surfaceAlt,
+          color: valid ? T.color.onPrimary : T.color.textMuted,
+          fontSize: 15, fontWeight: 700, cursor: valid ? 'pointer' : 'default',
+          fontFamily: T.fonts.body,
+          boxShadow: valid ? `0 6px 16px ${T.color.primary}40` : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        }}
+      >
+        <Icon.check size={16} color={valid ? T.color.onPrimary : T.color.textMuted} sw={2.4} />
+        {label}
+      </button>
+    </div>
+  );
 }

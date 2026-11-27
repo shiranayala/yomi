@@ -4,6 +4,7 @@ import { TabBar, TAB_ORDER, type TabId } from './components/TabBar';
 import { haptic } from './lib/haptics';
 import { BottomSheet, SheetIconButton } from './components/BottomSheet';
 import { TaskView } from './components/TaskView';
+import { EventView } from './components/EventView';
 import { Icon } from './icons';
 import { placeOnDay, longDayLabel } from './lib/taskDays';
 import { EventForm } from './components/EventForm';
@@ -68,6 +69,7 @@ type FormState =
   | { kind: 'addEvent'; date?: string }
   | { kind: 'editTask'; task: Task }
   | { kind: 'viewTask'; task: Task }
+  | { kind: 'viewEvent'; event: CalEvent; occurrenceDate?: string }
   | { kind: 'editEvent'; event: CalEvent; occurrenceDate?: string };
 
 type PendingEventOp =
@@ -329,7 +331,7 @@ function AppInner() {
   const handleEventSave = (ev: CalEvent) => {
     const original = events.find(x => x.id === ev.id);
     const isRecurring = original?.recurrence && original.recurrence !== 'once';
-    if (original && isRecurring && form.kind === 'editEvent' && form.occurrenceDate) {
+    if (original && isRecurring && (form.kind === 'editEvent' || form.kind === 'viewEvent') && form.occurrenceDate) {
       setPendingEventOp({ kind: 'save', ev, occurrenceDate: form.occurrenceDate });
       closeForm();
       return;
@@ -341,7 +343,7 @@ function AppInner() {
   const handleEventDelete = (id: string) => {
     const ev = events.find(e => e.id === id);
     const isRecurring = ev?.recurrence && ev.recurrence !== 'once';
-    if (ev && isRecurring && form.kind === 'editEvent' && form.occurrenceDate) {
+    if (ev && isRecurring && (form.kind === 'editEvent' || form.kind === 'viewEvent') && form.occurrenceDate) {
       setPendingEventOp({ kind: 'delete', id, occurrenceDate: form.occurrenceDate });
       closeForm();
       return;
@@ -932,7 +934,7 @@ function AppInner() {
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
             onEditTask={t => setForm({ kind: 'viewTask', task: t })}
-            onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
+            onEditEvent={(ev, date) => setForm({ kind: 'viewEvent', event: ev, occurrenceDate: date })}
             onOpenSettings={() => setShowSettings(true)}
             onOpenWeather={() => setShowWeather(true)}
             onSignOut={handleSignOut}
@@ -991,7 +993,7 @@ function AppInner() {
             events={events}
             tasks={tasks}
             dateFormat={dateFormat}
-            onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
+            onEditEvent={(ev, date) => setForm({ kind: 'viewEvent', event: ev, occurrenceDate: date })}
             onEditTask={t => setForm({ kind: 'viewTask', task: t })}
             onAddEvent={date => setForm({ kind: 'addEvent', date })}
             onAddTask={date => setForm({ kind: 'addTask', date })}
@@ -1139,18 +1141,42 @@ function AppInner() {
         )}
       </BottomSheet>
 
+      {/* One sheet for viewing, editing and adding an event */}
       <BottomSheet
-        open={isEventForm}
+        open={isEventForm || form.kind === 'viewEvent'}
         onClose={closeForm}
-        title={form.kind === 'editEvent' ? 'עריכת אירוע' : 'אירוע חדש'}
+        compact={form.kind === 'viewEvent'}
+        title={form.kind === 'viewEvent' ? 'אירוע' : form.kind === 'editEvent' ? 'עריכת אירוע' : 'אירוע חדש'}
+        headerActions={
+          form.kind === 'viewEvent' || form.kind === 'editEvent' ? (
+            <>
+              {form.kind === 'viewEvent' && (
+                <SheetIconButton label="עריכה" onClick={() => {
+                  const cur = events.find(x => x.id === form.event.id) ?? form.event;
+                  setForm({ kind: 'editEvent', event: cur, occurrenceDate: form.occurrenceDate });
+                }}>
+                  <Icon.edit size={15} color={T.color.primaryDeep} sw={2} />
+                </SheetIconButton>
+              )}
+              <SheetIconButton label="מחיקה" danger onClick={() => handleEventDelete(form.event.id)}>
+                <Icon.trash size={15} color="#d9667a" sw={2} />
+              </SheetIconButton>
+            </>
+          ) : null
+        }
       >
+        {form.kind === 'viewEvent' && (
+          <EventView
+            event={events.find(x => x.id === form.event.id) ?? form.event}
+            date={form.occurrenceDate}
+          />
+        )}
         {isEventForm && (
           <EventForm
+            key={form.kind}
             initial={form.kind === 'editEvent' ? form.event : undefined}
             defaultDate={form.kind === 'addEvent' ? form.date : undefined}
             onSave={handleEventSave}
-            onDelete={form.kind === 'editEvent' ? handleEventDelete : undefined}
-            onClose={closeForm}
           />
         )}
       </BottomSheet>
