@@ -42,6 +42,7 @@ export function softLine(a = '0.25') {
 
 export function catColor(id: string, cats?: Record<string, { color: string }>): string {
   if (cats?.[id]) return cats[id].color;
+  if (!id) return '#a99bd6'; // no category: soft brand purple
   const defaults: Record<string, string> = {
     work: '#8ba4d4', home: '#87c9a0', health: '#d4a18b',
     family: '#c89cd4', personal: '#d4bc8b',

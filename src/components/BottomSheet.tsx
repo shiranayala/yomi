@@ -12,9 +12,25 @@ interface Props {
   children: React.ReactNode;
   /** short menus: size to content instead of half the screen */
   compact?: boolean;
+  /** small icon buttons shown next to the close button */
+  headerActions?: React.ReactNode;
 }
 
-export function BottomSheet({ open, onClose, title, children, compact }: Props) {
+/** Round icon button matching the sheet's close button. */
+export function SheetIconButton({ label, onClick, children, danger }: {
+  label: string; onClick: () => void; children: React.ReactNode; danger?: boolean;
+}) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label} style={{
+      width: 32, height: 32, borderRadius: 99, border: 'none',
+      background: danger ? '#fbe9ec' : T.color.surfaceAlt, cursor: 'pointer',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      WebkitTapHighlightColor: 'transparent', flexShrink: 0,
+    }}>{children}</button>
+  );
+}
+
+export function BottomSheet({ open, onClose, title, children, compact, headerActions }: Props) {
   const drag = useSheetDrag(onClose, open);
 
   useEffect(() => {
@@ -73,14 +89,12 @@ export function BottomSheet({ open, onClose, title, children, compact }: Props) 
             margin: 0, fontSize: 18, fontWeight: 700, color: T.color.text,
             fontFamily: T.fonts.heading,
           }}>{title}</h2>
-          <button onClick={drag.close} aria-label="סגירה" style={{
-            width: 32, height: 32, borderRadius: 99, border: 'none',
-            background: T.color.surfaceAlt, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            WebkitTapHighlightColor: 'transparent',
-          }}>
-            <Icon.x size={16} color={T.color.textMuted} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {headerActions}
+            <SheetIconButton label="סגירה" onClick={drag.close}>
+              <Icon.x size={16} color={T.color.textMuted} />
+            </SheetIconButton>
+          </div>
         </div>
 
         {/* Scrollable content */}

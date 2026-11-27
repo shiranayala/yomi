@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { theme } from './theme';
 import { TabBar, TAB_ORDER, type TabId } from './components/TabBar';
 import { haptic } from './lib/haptics';
-import { BottomSheet } from './components/BottomSheet';
+import { BottomSheet, SheetIconButton } from './components/BottomSheet';
+import { TaskView } from './components/TaskView';
+import { Icon } from './icons';
+import { placeOnDay, longDayLabel } from './lib/taskDays';
 import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
 import { NoteEditor } from './components/NoteEditor';
@@ -64,6 +67,7 @@ type FormState =
   | { kind: 'addTask'; date?: string }
   | { kind: 'addEvent'; date?: string }
   | { kind: 'editTask'; task: Task }
+  | { kind: 'viewTask'; task: Task }
   | { kind: 'editEvent'; event: CalEvent; occurrenceDate?: string };
 
 type PendingEventOp =
@@ -246,10 +250,34 @@ function AppInner() {
     if (t) showUndo('המשימה נמחקה', () => restore(setTasks, 'tasks', [t]));
   };
 
+  /** Save the edited task, plus fresh copies of it on each of `days`. */
+  const copyTaskToDays = (t: Task, days: string[]) => {
+    const copies = days.map(day => placeOnDay(
+      { ...t, id: 'tsk' + genId(), done: false, recurrence: 'once' }, day,
+    ));
+    const all = [t, ...copies];
+    setTasks(ts => [...ts.map(x => (x.id === t.id ? t : x)), ...copies]);
+    all.forEach(x => fsSet('tasks', x.id, x));
+    const ids = copies.map(c => c.id);
+    showUndo(days.length > 1 ? `הועתק ל־${days.length} ימים` : `הועתק ל${longDayLabel(days[0])}`, () => {
+      setTasks(ts => ts.filter(x => !ids.includes(x.id)));
+      ids.forEach(id => fsDel('tasks', id));
+    });
+  };
+
+  /** Save the edited task on another day. */
+  const moveTaskToDay = (t: Task, day: string) => {
+    const before = tasks.find(x => x.id === t.id);
+    const moved = placeOnDay(t, day);
+    // "Today" tasks have no date to repeat from
+    saveTask(moved.today ? { ...moved, recurrence: 'once' } : moved);
+    if (before) showUndo(`הועבר ל${longDayLabel(day)}`, () => restore(setTasks, 'tasks', [before]));
+  };
+
   const quickAddTask = (title: string) => {
     saveTask({
       id: 'nt' + genId(),
-      title, cat: 'personal', done: false,
+      title, cat: '', done: false,
       time: null, today: true, todayDate: todayStr(), type: 'general', recurrence: 'once',
     });
   };
@@ -257,7 +285,7 @@ function AppInner() {
   const quickAddLaterTask = (title: string) => {
     saveTask({
       id: 'nt' + genId(),
-      title, cat: 'personal', done: false,
+      title, cat: '', done: false,
       time: null, today: false, type: 'general', recurrence: 'once',
     });
   };
@@ -268,7 +296,7 @@ function AppInner() {
     const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     saveTask({
       id: 'nt' + genId(),
-      title, cat: 'personal', done: false,
+      title, cat: '', done: false,
       time: null, today: false, type: 'general', recurrence: 'once',
       date: dateStr,
     });
@@ -903,7 +931,7 @@ function AppInner() {
             dateFormat={dateFormat}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
-            onEditTask={t => setForm({ kind: 'editTask', task: t })}
+            onEditTask={t => setForm({ kind: 'viewTask', task: t })}
             onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
             onOpenSettings={() => setShowSettings(true)}
             onOpenWeather={() => setShowWeather(true)}
@@ -931,7 +959,7 @@ function AppInner() {
             onAddTask={quickAddTask}
             onAddTomorrowTask={quickAddTomorrowTask}
             onAddLaterTask={quickAddLaterTask}
-            onEditTask={t => setForm({ kind: 'editTask', task: t })}
+            onEditTask={t => setForm({ kind: 'viewTask', task: t })}
             onDeferTask={deferTask}
           />
         )}
@@ -964,7 +992,7 @@ function AppInner() {
             tasks={tasks}
             dateFormat={dateFormat}
             onEditEvent={(ev, date) => setForm({ kind: 'editEvent', event: ev, occurrenceDate: date })}
-            onEditTask={t => setForm({ kind: 'editTask', task: t })}
+            onEditTask={t => setForm({ kind: 'viewTask', task: t })}
             onAddEvent={date => setForm({ kind: 'addEvent', date })}
             onAddTask={date => setForm({ kind: 'addTask', date })}
           />
@@ -1061,21 +1089,52 @@ function AppInner() {
         </div>
       )}
 
+      {/* One sheet for viewing, editing and adding a task, so view → edit doesn't flicker */}
       <BottomSheet
-        open={isTaskForm}
+        open={isTaskForm || form.kind === 'viewTask'}
         onClose={closeForm}
-        title={form.kind === 'editTask' ? 'עריכת משימה' : 'משימה חדשה'}
+        compact={form.kind === 'viewTask'}
+        title={form.kind === 'viewTask' ? 'משימה' : form.kind === 'editTask' ? 'עריכת משימה' : 'משימה חדשה'}
+        headerActions={
+          form.kind === 'viewTask' ? (
+            <>
+              <SheetIconButton label="עריכה" onClick={() => {
+                const cur = tasks.find(x => x.id === form.task.id) ?? form.task;
+                setForm({ kind: 'editTask', task: cur });
+              }}>
+                <Icon.edit size={15} color={T.color.primaryDeep} sw={2} />
+              </SheetIconButton>
+              <SheetIconButton label="מחיקה" danger onClick={() => { deleteTaskWithUndo(form.task.id); closeForm(); }}>
+                <Icon.trash size={15} color="#d9667a" sw={2} />
+              </SheetIconButton>
+            </>
+          ) : form.kind === 'editTask' ? (
+            <SheetIconButton label="מחיקה" danger onClick={() => { deleteTaskWithUndo(form.task.id); closeForm(); }}>
+              <Icon.trash size={15} color="#d9667a" sw={2} />
+            </SheetIconButton>
+          ) : null
+        }
       >
+        {form.kind === 'viewTask' && (
+          <TaskView
+            task={tasks.find(x => x.id === form.task.id) ?? form.task}
+            onToggle={() => toggleTask(form.task.id)}
+          />
+        )}
         {isTaskForm && (
           <TaskForm
+            key={form.kind}
             initial={form.kind === 'editTask' ? form.task : undefined}
             defaultDate={form.kind === 'addTask' ? form.date : undefined}
             onSave={t => {
               saveTask(t.today ? { ...t, todayDate: todayStr() } : t);
               closeForm();
             }}
-            onDelete={form.kind === 'editTask' ? (id => { deleteTaskWithUndo(id); closeForm(); }) : undefined}
-            onClose={closeForm}
+            onCopy={(t, days) => {
+              copyTaskToDays(t.today ? { ...t, todayDate: todayStr() } : t, days);
+              closeForm();
+            }}
+            onMove={(t, day) => { moveTaskToDay(t, day); closeForm(); }}
           />
         )}
       </BottomSheet>

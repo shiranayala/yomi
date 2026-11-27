@@ -73,7 +73,8 @@ export function CatDot({ id, size = 8 }: { id: string; size?: number }) {
 export function Chip({ id }: { id: string }) {
   const cats = useCats();
   const cat = cats[id];
-  const c = cat?.color ?? '#9aa39e';
+  if (!cat) return null; // no category
+  const c = cat.color;
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0,
