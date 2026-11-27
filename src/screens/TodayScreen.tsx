@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { theme, catColor } from '../theme';
 import { useCats } from '../lib/CategoriesContext';
-import type { Task, CalEvent, Routine, RoutineLog, TimeOfDay } from '../lib/types';
+import type { Task, CalEvent, Routine, RoutineLog, TimeOfDay, ShoppingItem, ShoppingList } from '../lib/types';
 import { isToday, isTomorrow, todayStr } from '../lib/recurrence';
 import { getRoutineIcon, todayStrLocal } from '../lib/routineIcons';
 import { Check, Chip, AddRow, SectionHead, PointPop } from '../components/atoms';
 import { routineWeekPoints } from '../lib/points';
 import { Icon } from '../icons';
 import { SwipeRow } from '../components/SwipeRow';
+import { ShoppingPins } from '../components/ShoppingPins';
 import { useWeather, type WeatherIconKey } from '../lib/useWeather';
 import { getGregorianDayMonth, getHebrewDayMonth, type DateFormat } from '../lib/dateFormat';
 
@@ -429,7 +430,7 @@ function WeatherWidget({ temp, label, icon }: { temp: number; label: string; ico
 
 // ── Screen ────────────────────────────────────────────────────────
 
-export function TodayScreen({ tasks, events, routines, routineLogs, onLogRoutine, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut }: {
+export function TodayScreen({ tasks, events, routines, routineLogs, onLogRoutine, userName, userEmail, dateFormat, onToggleTask, onAddTask, onEditTask, onEditEvent, onOpenSettings, onOpenWeather, onSignOut, shopping, shoppingLists, onToggleShop, onTogglePinItem, onTogglePinList, onOpenShopping }: {
   tasks: Task[];
   events: CalEvent[];
   routines: Routine[];
@@ -445,6 +446,12 @@ export function TodayScreen({ tasks, events, routines, routineLogs, onLogRoutine
   onOpenSettings: () => void;
   onOpenWeather: () => void;
   onSignOut: () => void;
+  shopping: ShoppingItem[];
+  shoppingLists: ShoppingList[];
+  onToggleShop: (id: string) => void;
+  onTogglePinItem: (id: string) => void;
+  onTogglePinList: (id: string) => void;
+  onOpenShopping: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const weather = useWeather();
@@ -676,6 +683,14 @@ export function TodayScreen({ tasks, events, routines, routineLogs, onLogRoutine
               </SwipeRow>
             ))}
             <AddRow placeholder="הוסף משימה להיום…" onAdd={onAddTask} />
+            <ShoppingPins
+              shopping={shopping}
+              shoppingLists={shoppingLists}
+              onToggle={onToggleShop}
+              onTogglePinItem={onTogglePinItem}
+              onTogglePinList={onTogglePinList}
+              onOpenShopping={onOpenShopping}
+            />
           </div>
 
           {/* Fixed routines by part of day — arrows browse morning/noon/evening */}

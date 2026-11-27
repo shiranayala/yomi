@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { theme, softLine } from '../theme';
 import type { ShoppingItem, ShoppingList } from '../lib/types';
 import { Check, PageHeader, glassCard } from '../components/atoms';
 import { Icon } from '../icons';
 import { SwipeRow } from '../components/SwipeRow';
+import { BottomSheet } from '../components/BottomSheet';
 
 const T = theme;
 
@@ -46,11 +47,12 @@ function ConfirmInline({ message, onConfirm, onCancel }: {
   );
 }
 
-function ListHeader({ list, onRename, onChangeColor, onDelete }: {
+function ListHeader({ list, onRename, onChangeColor, onDelete, onTogglePin }: {
   list: ShoppingList;
   onRename: (title: string) => void;
   onChangeColor: (color: string) => void;
   onDelete: () => void;
+  onTogglePin: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(list.title);
@@ -103,7 +105,24 @@ function ListHeader({ list, onRename, onChangeColor, onDelete }: {
         {confirmDel ? (
           <ConfirmInline message="למחוק?" onConfirm={onDelete} onCancel={() => setConfirmDel(false)} />
         ) : (
-          <div style={{ display: 'flex', gap: 2 }}>
+          <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <button
+              onClick={onTogglePin}
+              aria-label={list.pinned ? 'הסרה מהעמוד הראשי' : 'הצגה בעמוד הראשי'}
+              title={list.pinned ? 'הסרה מהעמוד הראשי' : 'הצגה בעמוד הראשי'}
+              style={list.pinned ? {
+                display: 'flex', alignItems: 'center', gap: 4,
+                border: 'none', cursor: 'pointer', borderRadius: 99, padding: '4px 10px',
+                background: accentColor + '22', color: accentColor,
+                fontSize: 12, fontWeight: 700, fontFamily: T.fonts.body,
+              } : {
+                background: 'none', border: 'none', cursor: 'pointer', padding: 5, borderRadius: 8,
+                display: 'flex',
+              }}
+            >
+              <Icon.pin size={14} color={list.pinned ? accentColor : T.color.textMuted} />
+              {list.pinned && 'בעמוד הראשי'}
+            </button>
             <button onClick={() => setEditing(e => !e)} style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: 5, borderRadius: 8,
             }}>
@@ -156,12 +175,14 @@ function AddItemRow({ onAdd }: { onAdd: (title: string) => void }) {
   );
 }
 
-export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDelete, onAddList, onEditList, onDeleteList }: {
+export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDelete, onTogglePinItem, onTogglePinList, onAddList, onEditList, onDeleteList }: {
   shopping: ShoppingItem[];
   shoppingLists: ShoppingList[];
   onToggle: (id: string) => void;
   onAdd: (title: string, listId: string) => void;
   onDelete: (ids: string[]) => void;
+  onTogglePinItem: (id: string) => void;
+  onTogglePinList: (id: string) => void;
   onAddList: (title: string, color: string) => string;
   onEditList: (id: string, title: string, color?: string) => void;
   onDeleteList: (id: string) => void;
@@ -170,6 +191,31 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(LIST_COLORS[0]);
+  const [menuItem, setMenuItem] = useState<ShoppingItem | null>(null);
+
+  // Long press on an item opens its menu (pin to Today / delete)
+  const press = useRef<{ timer: number; x: number; y: number; fired: boolean } | null>(null);
+  const pressStart = (e: React.PointerEvent, item: ShoppingItem) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const p = { timer: 0, x: e.clientX, y: e.clientY, fired: false };
+    p.timer = window.setTimeout(() => {
+      p.fired = true;
+      try { navigator.vibrate?.(12); } catch { /* not supported */ }
+      setMenuItem(item);
+    }, 450);
+    press.current = p;
+  };
+  const pressMove = (e: React.PointerEvent) => {
+    const p = press.current;
+    if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
+      clearTimeout(p.timer); press.current = null;
+    }
+  };
+  const pressEnd = () => { if (press.current && !press.current.fired) { clearTimeout(press.current.timer); press.current = null; } };
+  /** After a long press, swallow the click that follows so the item isn't toggled. */
+  const swallowClick = (e: React.MouseEvent) => {
+    if (press.current?.fired) { e.stopPropagation(); e.preventDefault(); press.current = null; }
+  };
 
   // Auto-select first list when lists load or change
   useEffect(() => {
@@ -246,6 +292,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                 transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 7,
               }}
             >
+              {list.pinned && <Icon.pin size={12} color={isSelected ? '#fff' : accent} />}
               {list.title}
               {count > 0 && (
                 <span style={{
@@ -330,6 +377,7 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
               onRename={title => onEditList(selectedList.id, title)}
               onChangeColor={color => onEditList(selectedList.id, selectedList.title, color)}
               onDelete={() => handleDeleteList(selectedList.id)}
+              onTogglePin={() => onTogglePinList(selectedList.id)}
             />
 
             {listItems.length === 0 && (
@@ -366,11 +414,19 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                       leaves: true,
                     }}
                   >
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
-                    opacity: s.done ? 0.45 : 1, transition: 'opacity .2s',
-                    borderBottom: i < listItems.length - 1 ? '1px solid ' + T.color.line : 'none',
-                  }}>
+                  <div
+                    onPointerDown={e => pressStart(e, s)}
+                    onPointerMove={pressMove}
+                    onPointerUp={pressEnd}
+                    onPointerCancel={pressEnd}
+                    onClickCapture={swallowClick}
+                    onContextMenu={e => e.preventDefault()}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '13px 14px',
+                      opacity: s.done ? 0.45 : 1, transition: 'opacity .2s',
+                      borderBottom: i < listItems.length - 1 ? '1px solid ' + T.color.line : 'none',
+                      WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none',
+                    } as React.CSSProperties}>
                     <Check checked={s.done} onToggle={() => onToggle(s.id)} color={selectedList.color} />
                     <span
                       onClick={() => onToggle(s.id)}
@@ -380,6 +436,18 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
                         textDecorationColor: T.color.textMuted, cursor: 'pointer',
                       }}
                     >{s.title}</span>
+                    {s.pinned && !s.done && (
+                      <button
+                        onClick={() => onTogglePinItem(s.id)}
+                        aria-label="הסרה מהעמוד הראשי" title="הסרה מהעמוד הראשי"
+                        style={{
+                          border: 'none', background: 'transparent', cursor: 'pointer',
+                          padding: 4, display: 'flex', alignItems: 'center',
+                        }}
+                      >
+                        <Icon.pin size={14} color={selectedList.color || T.color.primary} />
+                      </button>
+                    )}
                     <button
                       onClick={() => onDelete([s.id])}
                       style={{
@@ -410,9 +478,48 @@ export function ShoppingScreen({ shopping, shoppingLists, onToggle, onAdd, onDel
             )}
 
             <AddItemRow onAdd={title => onAdd(title, selectedList.id)} />
+            {listItems.some(s => !s.done) && (
+              <div style={{ textAlign: 'center', fontSize: 12, color: T.color.textMuted, marginTop: 12 }}>
+                לחיצה ארוכה על פריט · הצגה בעמוד הראשי
+              </div>
+            )}
           </>
         )}
       </div>
+
+      <BottomSheet open={!!menuItem} onClose={() => setMenuItem(null)} title={menuItem?.title ?? ''} compact>
+        {menuItem && (() => {
+          const cur = shopping.find(x => x.id === menuItem.id) ?? menuItem;
+          const row = (icon: React.ReactNode, label: string, onClick: () => void, color: string = T.color.text) => (
+            <button onClick={() => { onClick(); setMenuItem(null); }} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              padding: '13px 4px', fontSize: 15.5, fontWeight: 600, color,
+              fontFamily: T.fonts.body, textAlign: 'right',
+            }}>{icon}{label}</button>
+          );
+          return (
+            <div>
+              {!cur.done && row(
+                <Icon.pin size={18} color={T.color.primaryDeep} />,
+                cur.pinned ? 'הסרה מהעמוד הראשי' : 'הצגה בעמוד הראשי',
+                () => onTogglePinItem(cur.id),
+              )}
+              {row(
+                <Icon.check size={18} color="#5bb88a" sw={2.4} />,
+                cur.done ? 'החזרה לרשימה' : 'סימון כנקנה',
+                () => onToggle(cur.id),
+              )}
+              {row(
+                <Icon.trash size={18} color="#d9667a" />,
+                'מחיקה',
+                () => onDelete([cur.id]),
+                '#d9667a',
+              )}
+            </div>
+          );
+        })()}
+      </BottomSheet>
     </div>
   );
 }

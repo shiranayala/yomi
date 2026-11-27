@@ -395,12 +395,31 @@ function AppInner() {
   // ── Shopping operations ───────────────────────────────────────────
   const toggleShop = (id: string) => {
     haptic('tap');
-    setShopping(ss => {
-      const next = ss.map(s => s.id === id ? { ...s, done: !s.done } : s);
-      const s = next.find(s => s.id === id);
-      if (s) fsUpdate('shopping', id, { done: s.done });
-      return next;
-    });
+    const item = shopping.find(s => s.id === id);
+    if (!item) return;
+    const done = !item.done;
+    // Buying a pinned item also takes it off the Today screen
+    const patch = done && item.pinned ? { done, pinned: false } : { done };
+    setShopping(ss => ss.map(s => s.id === id ? { ...s, ...patch } : s));
+    fsUpdate('shopping', id, patch);
+  };
+
+  const toggleShopItemPin = (id: string) => {
+    const item = shopping.find(s => s.id === id);
+    if (!item) return;
+    const pinned = !item.pinned;
+    haptic('select');
+    setShopping(ss => ss.map(s => s.id === id ? { ...s, pinned } : s));
+    fsUpdate('shopping', id, { pinned });
+  };
+
+  const toggleShopListPin = (id: string) => {
+    const list = shoppingLists.find(l => l.id === id);
+    if (!list) return;
+    const pinned = !list.pinned;
+    haptic('select');
+    setShoppingLists(ls => ls.map(l => l.id === id ? { ...l, pinned } : l));
+    fsUpdate('shoppingLists', id, { pinned });
   };
 
   const addShop = (title: string, listId: string) => {
@@ -933,6 +952,12 @@ function AppInner() {
             dateFormat={dateFormat}
             onToggleTask={toggleTask}
             onAddTask={quickAddTask}
+            shopping={shopping}
+            shoppingLists={shoppingLists}
+            onToggleShop={toggleShop}
+            onTogglePinItem={toggleShopItemPin}
+            onTogglePinList={toggleShopListPin}
+            onOpenShopping={() => goTab('shopping')}
             onEditTask={t => setForm({ kind: 'viewTask', task: t })}
             onEditEvent={(ev, date) => setForm({ kind: 'viewEvent', event: ev, occurrenceDate: date })}
             onOpenSettings={() => setShowSettings(true)}
@@ -972,6 +997,8 @@ function AppInner() {
             onToggle={toggleShop}
             onAdd={addShop}
             onDelete={deleteShopItems}
+            onTogglePinItem={toggleShopItemPin}
+            onTogglePinList={toggleShopListPin}
             onAddList={addShopList}
             onEditList={editShopList}
             onDeleteList={deleteShopList}

@@ -15,6 +15,7 @@ export interface ShoppingList {
   id: string;
   title: string;
   color?: string;
+  pinned?: boolean;   // shown on the Today screen while it has items left
 }
 
 export interface Task {
@@ -38,6 +39,7 @@ export interface ShoppingItem {
   done: boolean;
   aisle: string;    // legacy
   listId?: string;
+  pinned?: boolean; // shown on the Today screen until bought
 }
 
 export interface Tag {
