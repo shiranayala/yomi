@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { theme } from './theme';
-import { TabBar, type TabId } from './components/TabBar';
+import { TabBar, TAB_ORDER, type TabId } from './components/TabBar';
+import { haptic } from './lib/haptics';
 import { BottomSheet } from './components/BottomSheet';
 import { EventForm } from './components/EventForm';
 import { TaskForm } from './components/TaskForm';
@@ -45,7 +46,7 @@ function prefetchScreens() {
 export const REDIRECT_FLAG = 'yomi-google-redirect';
 import {
   db, auth, collection, doc, getDocs, getDocsFromCache, setDoc, updateDoc, deleteDoc,
-  onAuthStateChanged, authSignOut, getRedirectResult,
+  onAuthStateChanged, authSignOut, getRedirectResult, browserPopupRedirectResolver,
   type User,
 } from './lib/firebase';
 import type { Task, ShoppingItem, ShoppingList, Note, CalEvent, Tag, Habit, HabitLog, Category, Routine, RoutineLog } from './lib/types';
@@ -68,6 +69,21 @@ type FormState =
 type PendingEventOp =
   | { kind: 'save';   ev: CalEvent; occurrenceDate: string }
   | { kind: 'delete'; id: string;   occurrenceDate: string };
+
+interface BootUser { uid: string; displayName: string; email: string }
+const BOOT_USER_KEY = 'yomi-last-user';
+function readBootUser(): BootUser | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(BOOT_USER_KEY) ?? 'null');
+    return v && typeof v.uid === 'string' ? v : null;
+  } catch { return null; }
+}
+function writeBootUser(u: BootUser | null) {
+  try {
+    if (u) localStorage.setItem(BOOT_USER_KEY, JSON.stringify(u));
+    else localStorage.removeItem(BOOT_USER_KEY);
+  } catch { /* storage unavailable */ }
+}
 
 function clean(data: object): object {
   return JSON.parse(JSON.stringify(data));
@@ -92,12 +108,24 @@ function AppInner() {
     try { pendingRedirect = sessionStorage.getItem(REDIRECT_FLAG) === '1'; } catch { /* ignore */ }
     if (pendingRedirect) {
       try { sessionStorage.removeItem(REDIRECT_FLAG); } catch { /* ignore */ }
-      getRedirectResult(auth)
+      getRedirectResult(auth, browserPopupRedirectResolver)
         .then(result => { if (result?.user) setAuthUser(result.user); })
         .catch(e => console.error('redirect result:', e));
     }
     return onAuthStateChanged(auth, u => setAuthUser(u));
   }, []);
+
+  // Last signed-in user, so a returning user sees their (locally cached) data at once
+  // instead of a splash while Firebase confirms the session.
+  const [bootUser] = useState<BootUser | null>(readBootUser);
+  useEffect(() => {
+    if (authUser === undefined) return;
+    if (authUser === null) { writeBootUser(null); return; }
+    const verified = authUser.providerData.some(p => p.providerId === 'google.com') || authUser.emailVerified;
+    writeBootUser(verified ? { uid: authUser.uid, displayName: authUser.displayName ?? '', email: authUser.email ?? '' } : null);
+  }, [authUser, reloadCount]);
+  // While auth is still loading, trust the remembered user
+  const booting = authUser === undefined && !!bootUser;
 
   // ── App state ─────────────────────────────────────────────────────
   const [tab, setTab]           = useState<TabId>('today');
@@ -118,7 +146,7 @@ function AppInner() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 
-  const uid = authUser?.uid ?? null;
+  const uid = authUser?.uid ?? (booting ? bootUser!.uid : null);
   // true once fresh server data has arrived (cleanup jobs must not run on stale cache)
   const [serverLoaded, setServerLoaded] = useState(false);
 
@@ -196,6 +224,7 @@ function AppInner() {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const newDone = !task.done;
+    haptic(newDone ? 'success' : 'tap');
     setTasks(ts => ts.map(t => t.id === id ? { ...t, done: newDone } : t));
     fsUpdate('tasks', id, { done: newDone });
   };
@@ -335,6 +364,7 @@ function AppInner() {
 
   // ── Shopping operations ───────────────────────────────────────────
   const toggleShop = (id: string) => {
+    haptic('tap');
     setShopping(ss => {
       const next = ss.map(s => s.id === id ? { ...s, done: !s.done } : s);
       const s = next.find(s => s.id === id);
@@ -668,7 +698,18 @@ function AppInner() {
     localStorage.setItem('dateFormat', f);
   };
 
-  useEffect(() => { setFabOpen(false); }, [tab]);
+  // ── Tab change: close FAB, start at the top, slide in from the tab's side ──
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevTabRef = useRef<TabId>(tab);
+  const [tabDir, setTabDir] = useState<'from-left' | 'from-right'>('from-left');
+  useEffect(() => {
+    setFabOpen(false);
+    const prev = TAB_ORDER.indexOf(prevTabRef.current), next = TAB_ORDER.indexOf(tab);
+    prevTabRef.current = tab;
+    // RTL: tabs further along the bar sit further to the left
+    setTabDir(next > prev ? 'from-left' : 'from-right');
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [tab]);
 
   // ── Back button (Android / PWA) ───────────────────────────────────
   useEffect(() => {
@@ -705,25 +746,25 @@ function AppInner() {
   const isEventForm = form.kind === 'addEvent' || form.kind === 'editEvent';
 
   // ── Loading ───────────────────────────────────────────────────────
-  if (authUser === undefined) {
+  if (authUser === undefined && !booting) {
     return <Splash />;
   }
 
   // ── Not authenticated ─────────────────────────────────────────────
-  if (!authUser) return <AuthScreen />;
+  if (authUser === null) return <AuthScreen />;
 
   // ── Email not verified (skip for Google users) ────────────────────
   // reloadCount triggers re-render so auth.currentUser.emailVerified is re-read after reload()
-  const emailVerified = reloadCount >= 0 && (isGoogleUser(authUser)
-    || (auth?.currentUser?.emailVerified ?? authUser.emailVerified));
-  if (!emailVerified) {
+  const emailVerified = booting || (reloadCount >= 0 && authUser && (isGoogleUser(authUser)
+    || (auth?.currentUser?.emailVerified ?? authUser.emailVerified)));
+  if (!emailVerified && authUser) {
     return <VerifyEmailScreen user={authUser} onVerified={handleVerified} />;
   }
 
   // ── Authenticated ─────────────────────────────────────────────────
-  const displayName = auth?.currentUser?.displayName ?? authUser.displayName ?? '';
+  const displayName = auth?.currentUser?.displayName ?? authUser?.displayName ?? bootUser?.displayName ?? '';
   const firstName = displayName.split(' ')[0];
-  const userEmail = auth?.currentUser?.email ?? authUser.email ?? '';
+  const userEmail = auth?.currentUser?.email ?? authUser?.email ?? bootUser?.email ?? '';
 
   if (showWeather) {
     return (
@@ -748,7 +789,8 @@ function AppInner() {
       fontFamily: T.fonts.body, WebkitFontSmoothing: 'antialiased',
       maxWidth: 480, margin: '0 auto', position: 'relative',
     }}>
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+        <div key={tab} className={`yomi-tab-in ${tabDir}`}>
         {tab === 'today' && (
           <TodayScreen
             tasks={tasks} events={events}
@@ -826,6 +868,7 @@ function AppInner() {
             onAddTask={date => setForm({ kind: 'addTask', date })}
           />
         )}
+        </div>
       </div>
 
       <TabBar tab={tab} setTab={setTab} />
@@ -888,7 +931,7 @@ function AppInner() {
       )}
 
       {/* Settings overlay */}
-      {showSettings && (
+      {showSettings && authUser && (
         <SettingsScreen
           user={authUser}
           dateFormat={dateFormat}

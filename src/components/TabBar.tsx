@@ -1,5 +1,6 @@
 import { Icon } from '../icons';
 import { theme } from '../theme';
+import { haptic } from '../lib/haptics';
 
 export type TabId = 'today' | 'routine' | 'tasks' | 'shopping' | 'notes' | 'calendar';
 
@@ -13,6 +14,8 @@ const TABS: { id: TabId; label: string; icon: (p: { size: number; color: string;
   { id: 'shopping', label: 'קניות',  icon: Icon.cart },
   { id: 'notes',    label: 'פתקים',  icon: Icon.note },
 ];
+
+export const TAB_ORDER: TabId[] = TABS.map(t => t.id);
 
 export function TabBar({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
   return (
@@ -31,7 +34,7 @@ export function TabBar({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void
       {TABS.map(({ id, label, icon: Ic }) => {
         const active = tab === id;
         return (
-          <button key={id} onClick={() => setTab(id)} style={{
+          <button key={id} onClick={() => { if (!active) { haptic('select'); setTab(id); } }} style={{
             border: 'none', background: 'transparent', cursor: 'pointer', flex: 1,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             color: active ? T.color.primaryDeep : T.color.textMuted,

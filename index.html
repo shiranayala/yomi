@@ -65,6 +65,30 @@
       #root { position: relative; z-index: 1; }
       button { font-family: inherit; }
       input, textarea { font-family: inherit; }
+
+      /* Touch feel: no grey flash, no text-select / callout on long press of buttons */
+      * { -webkit-tap-highlight-color: transparent; }
+      button, [role="button"] {
+        -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        touch-action: manipulation; /* no double-tap zoom delay */
+        transition: transform .12s ease, filter .12s ease;
+      }
+      /* Press feedback. Inline transforms (FAB etc.) win over this, so they are untouched. */
+      button:not(:disabled):active, [role="button"]:active { transform: scale(0.96); filter: brightness(0.96); }
+
+      /* Tab change: content slides in from the side of the tapped tab */
+      .yomi-tab-in { animation: yomi-tab-in .24s cubic-bezier(.2,.8,.2,1); }
+      .yomi-tab-in.from-right { --tab-from: 18px; }
+      .yomi-tab-in.from-left  { --tab-from: -18px; }
+      @keyframes yomi-tab-in {
+        from { opacity: 0; transform: translateX(var(--tab-from, 0)); }
+        to   { opacity: 1; transform: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .yomi-tab-in { animation: none; }
+        button:active, [role="button"]:active { transform: none; }
+      }
       ::-webkit-scrollbar { display: none; }
       * { scrollbar-width: none; }
     </style>

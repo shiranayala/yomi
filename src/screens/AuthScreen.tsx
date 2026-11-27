@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { theme } from '../theme';
 import {
   auth,
-  GoogleAuthProvider, signInWithPopup, signInWithRedirect,
+  GoogleAuthProvider, signInWithPopup, signInWithRedirect, browserPopupRedirectResolver,
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   sendPasswordResetEmail, sendEmailVerification, updateProfile,
 } from '../lib/firebase';
@@ -75,7 +75,7 @@ export function AuthScreen() {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       // onAuthStateChanged handles the rest
     } catch (e: unknown) {
       const code = (e as { code?: string }).code ?? '';
@@ -83,7 +83,7 @@ export function AuthScreen() {
         // popup blocked — fall back to full-page redirect
         try {
           try { sessionStorage.setItem('yomi-google-redirect', '1'); } catch { /* ignore */ }
-          await signInWithRedirect(auth, provider);
+          await signInWithRedirect(auth, provider, browserPopupRedirectResolver);
         } catch {
           setLoading(false);
           setError('שגיאה בהתחברות, נסי שוב');

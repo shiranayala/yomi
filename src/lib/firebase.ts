@@ -5,13 +5,16 @@ import {
   getDocs, getDocsFromCache, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, type Firestore,
 } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import {
+  initializeAuth, indexedDBLocalPersistence, browserLocalPersistence,
+  browserPopupRedirectResolver, type Auth,
+} from 'firebase/auth';
 
 const apiKey    = import.meta.env.VITE_FIREBASE_API_KEY;
 const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
 
 let db:   Firestore | null = null;
-let auth: ReturnType<typeof getAuth> | null = null;
+let auth: Auth | null = null;
 
 if (apiKey && projectId) {
   const app = initializeApp({
@@ -26,9 +29,15 @@ if (apiKey && projectId) {
   db   = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
-  auth = getAuth(app);
+  // initializeAuth instead of getAuth: getAuth also sets up the Google popup/redirect
+  // machinery (a hidden iframe + redirect check) on every launch, which delays the
+  // first auth state. The resolver is passed only to the sign-in calls that need it.
+  auth = initializeAuth(app, {
+    persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+  });
 }
 
+export { browserPopupRedirectResolver };
 export { db, auth, collection, doc, getDocs, getDocsFromCache, setDoc, updateDoc, deleteDoc, onSnapshot, query };
 
 export type { User } from 'firebase/auth';
